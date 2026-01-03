@@ -2,15 +2,22 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { GocardlessClient } from "@/lib/gocardless"
 
+// Helper to get the correct base URL for redirects
+function getBaseUrl(): string {
+  // Use NEXT_PUBLIC_APP_URL if available, otherwise NEXTAUTH_URL, otherwise fallback
+  return process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "https://crm.julienronot.fr"
+}
+
 // GET: Handle callback after bank authentication
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const ref = searchParams.get("ref")
+    const baseUrl = getBaseUrl()
 
     if (!ref) {
       // Redirect to treasury page with error
-      return NextResponse.redirect(new URL("/treasury?error=missing_ref", request.url))
+      return NextResponse.redirect(new URL("/treasury?error=missing_ref", baseUrl))
     }
 
     // Find the connection - try multiple strategies:
@@ -43,7 +50,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!connection) {
-      return NextResponse.redirect(new URL("/treasury?error=connection_not_found", request.url))
+      return NextResponse.redirect(new URL("/treasury?error=connection_not_found", baseUrl))
     }
 
     // Get tenant settings
@@ -52,7 +59,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tenant) {
-      return NextResponse.redirect(new URL("/treasury?error=tenant_not_found", request.url))
+      return NextResponse.redirect(new URL("/treasury?error=tenant_not_found", baseUrl))
     }
 
     const settings = tenant.settings ? JSON.parse(tenant.settings as string) : {}
@@ -165,7 +172,7 @@ export async function GET(request: NextRequest) {
       // Redirect to treasury with success
       const accountCount = createdAccounts.length
       return NextResponse.redirect(
-        new URL(`/treasury?success=connected&bank=${encodeURIComponent(connection.institutionName)}&accounts=${accountCount}`, request.url)
+        new URL(`/treasury?success=connected&bank=${encodeURIComponent(connection.institutionName)}&accounts=${accountCount}`, baseUrl)
       )
     } else if (requisition.status === "EX") {
       // Connection expired
@@ -176,7 +183,7 @@ export async function GET(request: NextRequest) {
           error_message: "Connection request expired",
         },
       })
-      return NextResponse.redirect(new URL("/treasury?error=expired", request.url))
+      return NextResponse.redirect(new URL("/treasury?error=expired", baseUrl))
     } else if (requisition.status === "RJ") {
       // Connection rejected
       await prisma.gocardlessConnection.update({
@@ -186,7 +193,7 @@ export async function GET(request: NextRequest) {
           error_message: "Connection was rejected by the bank",
         },
       })
-      return NextResponse.redirect(new URL("/treasury?error=rejected", request.url))
+      return NextResponse.redirect(new URL("/treasury?error=rejected", baseUrl))
     } else {
       // Still pending or other status
       await prisma.gocardlessConnection.update({
@@ -196,12 +203,13 @@ export async function GET(request: NextRequest) {
           error_message: `Unexpected status: ${requisition.status}`,
         },
       })
-      return NextResponse.redirect(new URL(`/treasury?error=status_${requisition.status}`, request.url))
+      return NextResponse.redirect(new URL(`/treasury?error=status_${requisition.status}`, baseUrl))
     }
   } catch (error) {
     console.error("Error in callback:", error)
+    const baseUrl = getBaseUrl()
     return NextResponse.redirect(
-      new URL(`/treasury?error=${encodeURIComponent(error instanceof Error ? error.message : "unknown")}`, request.url)
+      new URL(`/treasury?error=${encodeURIComponent(error instanceof Error ? error.message : "unknown")}`, baseUrl)
     )
   }
 }

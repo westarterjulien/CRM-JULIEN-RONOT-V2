@@ -86,7 +86,9 @@ export async function POST(request: NextRequest) {
               testUrl,
               companyName,
               undefined,
-              "Merci pour votre confiance. N'hésitez pas à nous contacter pour toute question."
+              "Merci pour votre confiance. N'hésitez pas à nous contacter pour toute question.",
+              "Prélèvement automatique", // paymentMethod
+              new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString("fr-FR") // directDebitDate
             )
             results.push({ type: "Facture", success: true })
             break

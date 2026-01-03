@@ -115,65 +115,157 @@ export async function sendEmail({ to, subject, html, text }: SendEmailOptions) {
 export async function sendPasswordResetEmail(email: string, token: string, userName: string) {
   const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`
 
+  // Get company name from tenant settings
+  let companyName = "CRM"
+  try {
+    const tenant = await prisma.tenants.findFirst({
+      where: { id: BigInt(1) },
+      select: { name: true },
+    })
+    if (tenant?.name) companyName = tenant.name
+  } catch {
+    // Use default
+  }
+
   const html = `
-    <!DOCTYPE html>
-    <html>
+    <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+    <html xmlns="http://www.w3.org/1999/xhtml" lang="fr">
       <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Réinitialisation de mot de passe</title>
+        <!--[if mso]>
+        <style type="text/css">
+          body, table, td {font-family: Arial, Helvetica, sans-serif !important;}
+        </style>
+        <![endif]-->
       </head>
-      <body style="margin: 0; padding: 0; background-color: #061140; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+      <body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: Arial, Helvetica, sans-serif; -webkit-font-smoothing: antialiased;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f5f5f5">
           <tr>
-            <td align="center" style="padding: 40px 0;">
-              <table role="presentation" style="width: 600px; border-collapse: collapse; background: linear-gradient(145deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%); border-radius: 24px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
+            <td align="center" style="padding: 40px 20px;">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="max-width: 600px;">
+
                 <!-- Header -->
                 <tr>
-                  <td align="center" style="padding: 40px 40px 20px 40px;">
-                    <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #38b6ff 0%, #0066cc 100%); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
-                      <span style="font-size: 28px; color: white;">⚡</span>
-                    </div>
-                    <h1 style="color: #ffffff; font-size: 24px; margin: 0 0 10px 0;">CRM Julien</h1>
-                    <p style="color: rgba(56, 182, 255, 0.8); font-size: 14px; margin: 0;">Réinitialisation de mot de passe</p>
+                  <td align="center" bgcolor="#0064FA" style="padding: 48px 40px 32px 40px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin: 0 auto 16px auto;">
+                      <tr>
+                        <td width="64" height="64" align="center" valign="middle" bgcolor="#003D99" style="font-size: 32px; color: white;">
+                          &#128274;
+                        </td>
+                      </tr>
+                    </table>
+                    <h1 style="color: #ffffff; font-size: 26px; margin: 0 0 8px 0; font-weight: bold;">
+                      Réinitialisation du mot de passe
+                    </h1>
+                    <p style="color: #B8D4FF; font-size: 15px; margin: 0;">
+                      ${companyName}
+                    </p>
                   </td>
                 </tr>
 
-                <!-- Content -->
+                <!-- Main Content -->
                 <tr>
-                  <td style="padding: 20px 40px 40px 40px;">
-                    <p style="color: rgba(255,255,255,0.9); font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
-                      Bonjour <strong style="color: #38b6ff;">${userName}</strong>,
-                    </p>
-                    <p style="color: rgba(255,255,255,0.7); font-size: 15px; line-height: 1.6; margin: 0 0 30px 0;">
-                      Vous avez demandé la réinitialisation de votre mot de passe. Cliquez sur le bouton ci-dessous pour créer un nouveau mot de passe.
+                  <td style="padding: 40px;">
+                    <!-- Greeting -->
+                    <p style="color: #1a1a1a; font-size: 18px; line-height: 1.5; margin: 0 0 20px 0; font-weight: bold;">
+                      Bonjour ${userName},
                     </p>
 
-                    <!-- Button -->
-                    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                    <p style="color: #4a4a4a; font-size: 15px; line-height: 1.6; margin: 0 0 28px 0;">
+                      Vous avez demandé la réinitialisation de votre mot de passe. Cliquez sur le bouton ci-dessous pour créer un nouveau mot de passe sécurisé.
+                    </p>
+
+                    <!-- Security Notice -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 28px;">
                       <tr>
-                        <td align="center">
-                          <a href="${resetUrl}" style="display: inline-block; background: linear-gradient(135deg, #38b6ff 0%, #0066cc 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 20px rgba(56, 182, 255, 0.4);">
-                            Réinitialiser mon mot de passe
-                          </a>
+                        <td bgcolor="#f0f4ff" style="padding: 20px; border-left: 4px solid #0064FA;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td width="40" valign="top" style="font-size: 24px;">
+                                &#128737;
+                              </td>
+                              <td style="padding-left: 14px;">
+                                <p style="margin: 0; color: #1a1a1a; font-size: 14px; line-height: 1.5;">
+                                  <strong>Demande de sécurité</strong><br />
+                                  <span style="color: #4a4a4a;">Ce lien est valable pendant <strong>1 heure</strong> et ne peut être utilisé qu'une seule fois.</span>
+                                </p>
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                       </tr>
                     </table>
 
-                    <p style="color: rgba(255,255,255,0.5); font-size: 13px; line-height: 1.6; margin: 30px 0 0 0; text-align: center;">
-                      Ce lien expire dans <strong style="color: #38b6ff;">1 heure</strong>.
+                    <!-- CTA Button - Outlook compatible -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 32px 0;">
+                      <tr>
+                        <td align="center">
+                          <!--[if mso]>
+                          <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${resetUrl}" style="height:54px;v-text-anchor:middle;width:320px;" arcsize="22%" stroke="f" fillcolor="#0064FA">
+                            <w:anchorlock/>
+                            <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:17px;font-weight:bold;">&#128274; Réinitialiser mon mot de passe</center>
+                          </v:roundrect>
+                          <![endif]-->
+                          <!--[if !mso]><!-->
+                          <a href="${resetUrl}" style="display: inline-block; background-color: #0064FA; color: #ffffff; text-decoration: none; padding: 18px 48px; font-size: 17px; font-weight: bold; border-radius: 12px; mso-hide: all;">
+                            &#128274;&nbsp;&nbsp;Réinitialiser mon mot de passe
+                          </a>
+                          <!--<![endif]-->
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Fallback link -->
+                    <p style="text-align: center; margin: 0 0 28px 0;">
+                      <span style="color: #6b7280; font-size: 12px;">Lien direct : </span>
+                      <a href="${resetUrl}" style="color: #0064FA; font-size: 12px; word-break: break-all;">${resetUrl}</a>
                     </p>
-                    <p style="color: rgba(255,255,255,0.4); font-size: 12px; line-height: 1.6; margin: 20px 0 0 0; text-align: center;">
-                      Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.
-                    </p>
+
+                    <!-- Warning -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 28px;">
+                      <tr>
+                        <td bgcolor="#fff8e6" style="padding: 18px 22px;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td width="28" valign="top" style="font-size: 20px;">
+                                &#9888;&#65039;
+                              </td>
+                              <td style="padding-left: 14px;">
+                                <p style="margin: 0; color: #92600e; font-size: 14px; line-height: 1.5;">
+                                  <strong>Vous n'êtes pas à l'origine de cette demande ?</strong><br />
+                                  <span style="color: #b8860b;">Ignorez simplement cet email. Votre mot de passe restera inchangé.</span>
+                                </p>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
 
                 <!-- Footer -->
                 <tr>
-                  <td style="padding: 20px 40px; border-top: 1px solid rgba(255,255,255,0.1);">
-                    <p style="color: rgba(255,255,255,0.3); font-size: 12px; margin: 0; text-align: center;">
-                      © ${new Date().getFullYear()} CRM Julien. Tous droits réservés.
+                  <td bgcolor="#f8f9fc" style="padding: 24px 40px; border-top: 1px solid #e5e7eb;">
+                    <p style="color: #6b7280; font-size: 13px; margin: 0 0 8px 0; text-align: center;">
+                      Ce message a été envoyé par <strong>${companyName}</strong>
+                    </p>
+                    <p style="color: #9ca3af; font-size: 12px; margin: 0; text-align: center;">
+                      Pour des raisons de sécurité, ne partagez jamais ce lien avec personne.
+                    </p>
+                  </td>
+                </tr>
+
+              </table>
+
+              <!-- Sub-footer -->
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px;">
+                <tr>
+                  <td style="padding: 24px 0;">
+                    <p style="color: #9ca3af; font-size: 11px; margin: 0; text-align: center;">
+                      © ${new Date().getFullYear()} ${companyName} - Tous droits réservés
                     </p>
                   </td>
                 </tr>
@@ -187,7 +279,7 @@ export async function sendPasswordResetEmail(email: string, token: string, userN
 
   return sendEmail({
     to: email,
-    subject: "Réinitialisation de votre mot de passe - CRM Julien",
+    subject: `Réinitialisation de votre mot de passe - ${companyName}`,
     html,
   })
 }
@@ -201,72 +293,176 @@ export async function sendClientInvitationEmail(
   const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/client/accept-invitation?token=${token}`
 
   const html = `
-    <!DOCTYPE html>
-    <html>
+    <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+    <html xmlns="http://www.w3.org/1999/xhtml" lang="fr">
       <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Invitation - Espace Client</title>
+        <!--[if mso]>
+        <style type="text/css">
+          body, table, td {font-family: Arial, Helvetica, sans-serif !important;}
+        </style>
+        <![endif]-->
       </head>
-      <body style="margin: 0; padding: 0; background-color: #F5F5F7; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+      <body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: Arial, Helvetica, sans-serif; -webkit-font-smoothing: antialiased;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f5f5f5">
           <tr>
             <td align="center" style="padding: 40px 20px;">
-              <table role="presentation" style="width: 600px; max-width: 100%; border-collapse: collapse; background: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="max-width: 600px;">
+
                 <!-- Header -->
                 <tr>
-                  <td align="center" style="padding: 40px 40px 20px 40px; background: linear-gradient(135deg, #0064FA 0%, #0052CC 100%);">
-                    <div style="width: 60px; height: 60px; background: rgba(255,255,255,0.2); border-radius: 16px; display: inline-block; line-height: 60px; margin-bottom: 16px;">
-                      <span style="font-size: 28px; color: white;">✉️</span>
-                    </div>
-                    <h1 style="color: #ffffff; font-size: 24px; margin: 0 0 8px 0; font-weight: 600;">Vous êtes invité !</h1>
-                    <p style="color: rgba(255,255,255,0.8); font-size: 14px; margin: 0;">Espace Client ${companyName}</p>
+                  <td align="center" bgcolor="#10B981" style="padding: 48px 40px 32px 40px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin: 0 auto 16px auto;">
+                      <tr>
+                        <td width="64" height="64" align="center" valign="middle" bgcolor="#059669" style="font-size: 32px; color: white;">
+                          &#128100;
+                        </td>
+                      </tr>
+                    </table>
+                    <h1 style="color: #ffffff; font-size: 26px; margin: 0 0 8px 0; font-weight: bold;">
+                      Bienvenue sur votre espace client
+                    </h1>
+                    <p style="color: #A7F3D0; font-size: 15px; margin: 0;">
+                      ${companyName}
+                    </p>
                   </td>
                 </tr>
 
-                <!-- Content -->
+                <!-- Main Content -->
                 <tr>
-                  <td style="padding: 32px 40px 40px 40px;">
-                    <p style="color: #111111; font-size: 16px; line-height: 1.6; margin: 0 0 16px 0;">
+                  <td style="padding: 40px;">
+                    <!-- Greeting -->
+                    <p style="color: #1a1a1a; font-size: 18px; line-height: 1.5; margin: 0 0 20px 0; font-weight: bold;">
                       Bonjour,
                     </p>
-                    <p style="color: #444444; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">
-                      <strong style="color: #0064FA;">${inviterName}</strong> vous invite à rejoindre l'espace client de <strong>${companyName}</strong>.
-                    </p>
-                    <p style="color: #444444; font-size: 15px; line-height: 1.6; margin: 0 0 32px 0;">
-                      Cet espace vous permettra de :
-                    </p>
-                    <ul style="color: #444444; font-size: 14px; line-height: 1.8; margin: 0 0 32px 0; padding-left: 20px;">
-                      <li>Consulter vos factures</li>
-                      <li>Voir et accepter vos devis</li>
-                      <li>Suivre l'état de vos documents</li>
-                    </ul>
 
-                    <!-- Button -->
-                    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                    <p style="color: #4a4a4a; font-size: 15px; line-height: 1.6; margin: 0 0 28px 0;">
+                      <strong style="color: #10B981;">${inviterName}</strong> vous invite à rejoindre l'espace client de <strong>${companyName}</strong>.
+                    </p>
+
+                    <!-- Features Card -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 28px;">
                       <tr>
-                        <td align="center">
-                          <a href="${inviteUrl}" style="display: inline-block; background: #0064FA; color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(0, 100, 250, 0.3);">
-                            Créer mon compte
-                          </a>
+                        <td bgcolor="#f0fdf4" style="padding: 24px; border-left: 4px solid #10B981;">
+                          <p style="margin: 0 0 16px 0; color: #1a1a1a; font-size: 15px; font-weight: bold;">
+                            Votre espace client vous permet de :
+                          </p>
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td style="padding: 8px 0; color: #4a4a4a; font-size: 14px;">
+                                <strong style="color: #10B981;">&#10003;</strong>&nbsp;&nbsp;Consulter et télécharger vos factures
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 8px 0; color: #4a4a4a; font-size: 14px;">
+                                <strong style="color: #10B981;">&#10003;</strong>&nbsp;&nbsp;Voir et accepter vos devis en ligne
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 8px 0; color: #4a4a4a; font-size: 14px;">
+                                <strong style="color: #10B981;">&#10003;</strong>&nbsp;&nbsp;Signer vos contrats électroniquement
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 8px 0; color: #4a4a4a; font-size: 14px;">
+                                <strong style="color: #10B981;">&#10003;</strong>&nbsp;&nbsp;Suivre l'état de vos documents
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                       </tr>
                     </table>
 
-                    <p style="color: #666666; font-size: 13px; line-height: 1.6; margin: 32px 0 0 0; text-align: center;">
-                      Ce lien expire dans <strong style="color: #0064FA;">72 heures</strong>.
+                    <!-- CTA Button - Outlook compatible -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 32px 0;">
+                      <tr>
+                        <td align="center">
+                          <!--[if mso]>
+                          <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${inviteUrl}" style="height:54px;v-text-anchor:middle;width:280px;" arcsize="22%" stroke="f" fillcolor="#10B981">
+                            <w:anchorlock/>
+                            <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:17px;font-weight:bold;">&#128100; Créer mon compte</center>
+                          </v:roundrect>
+                          <![endif]-->
+                          <!--[if !mso]><!-->
+                          <a href="${inviteUrl}" style="display: inline-block; background-color: #10B981; color: #ffffff; text-decoration: none; padding: 18px 56px; font-size: 17px; font-weight: bold; border-radius: 12px; mso-hide: all;">
+                            &#128100;&nbsp;&nbsp;Créer mon compte
+                          </a>
+                          <!--<![endif]-->
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Fallback link -->
+                    <p style="text-align: center; margin: 0 0 28px 0;">
+                      <span style="color: #6b7280; font-size: 12px;">Lien direct : </span>
+                      <a href="${inviteUrl}" style="color: #10B981; font-size: 12px; word-break: break-all;">${inviteUrl}</a>
                     </p>
+
+                    <!-- Expiration Notice -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 28px;">
+                      <tr>
+                        <td bgcolor="#fff8e6" style="padding: 18px 22px;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td width="28" valign="top" style="font-size: 20px;">
+                                &#9200;
+                              </td>
+                              <td style="padding-left: 14px;">
+                                <p style="margin: 0; color: #92600e; font-size: 14px; line-height: 1.5;">
+                                  <strong>Attention :</strong> Ce lien d'invitation expire dans <strong>72 heures</strong>.
+                                </p>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Security -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 20px;">
+                      <tr>
+                        <td bgcolor="#f5f5f5" style="padding: 18px 22px;">
+                          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td width="28" valign="top" style="font-size: 20px;">
+                                &#128274;
+                              </td>
+                              <td style="padding-left: 14px;">
+                                <p style="margin: 0; color: #4a4a4a; font-size: 14px; line-height: 1.5;">
+                                  <strong>Connexion sécurisée</strong><br />
+                                  <span style="color: #6b7280;">Votre espace client est protégé par un accès sécurisé avec mot de passe personnel.</span>
+                                </p>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
 
                 <!-- Footer -->
                 <tr>
-                  <td style="padding: 20px 40px; background: #F5F5F7; border-top: 1px solid #EEEEEE;">
-                    <p style="color: #AEAEAE; font-size: 12px; margin: 0; text-align: center;">
-                      © ${new Date().getFullYear()} ${companyName}. Tous droits réservés.
+                  <td bgcolor="#f8f9fc" style="padding: 24px 40px; border-top: 1px solid #e5e7eb;">
+                    <p style="color: #6b7280; font-size: 13px; margin: 0 0 8px 0; text-align: center;">
+                      Ce message a été envoyé par <strong>${companyName}</strong>
                     </p>
-                    <p style="color: #AEAEAE; font-size: 11px; margin: 8px 0 0 0; text-align: center;">
+                    <p style="color: #9ca3af; font-size: 12px; margin: 0; text-align: center;">
                       Si vous n'attendiez pas cette invitation, vous pouvez ignorer cet email.
+                    </p>
+                  </td>
+                </tr>
+
+              </table>
+
+              <!-- Sub-footer -->
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px;">
+                <tr>
+                  <td style="padding: 24px 0;">
+                    <p style="color: #9ca3af; font-size: 11px; margin: 0; text-align: center;">
+                      © ${new Date().getFullYear()} ${companyName} - Tous droits réservés
                     </p>
                   </td>
                 </tr>
@@ -280,7 +476,7 @@ export async function sendClientInvitationEmail(
 
   return sendEmail({
     to: email,
-    subject: `Invitation - Espace client ${companyName}`,
+    subject: `Invitation - Votre espace client ${companyName}`,
     html,
   })
 }
@@ -539,6 +735,8 @@ export async function sendSignatureRequestEmail(
 
 /**
  * Send invoice email to client
+ * @param paymentMethod - Mode de paiement (ex: "Virement bancaire", "Prélèvement automatique", "Carte bancaire")
+ * @param directDebitDate - Date de prélèvement si applicable (remplace la date d'échéance)
  */
 export async function sendInvoiceEmail(
   email: string,
@@ -550,7 +748,9 @@ export async function sendInvoiceEmail(
   viewUrl: string,
   senderCompany: string,
   logoUrl?: string,
-  message?: string
+  message?: string,
+  paymentMethod?: string,
+  directDebitDate?: string
 ) {
   const customMessage = message
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px;">
@@ -571,6 +771,15 @@ export async function sendInvoiceEmail(
           </td>
         </tr>
       </table>`
+
+  // Determine if it's a direct debit or regular due date
+  const isDirectDebit = directDebitDate && paymentMethod?.toLowerCase().includes('prélèvement')
+  const paymentDateLabel = isDirectDebit ? 'Date de prélèvement' : 'Échéance'
+  const paymentDateValue = isDirectDebit ? directDebitDate : dueDate
+  const paymentDateColor = isDirectDebit ? '#0064FA' : '#dc2626' // Blue for direct debit, red for due date
+
+  // Payment method display
+  const displayPaymentMethod = paymentMethod || 'Virement bancaire'
 
   const html = `
     <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -635,19 +844,25 @@ export async function sendInvoiceEmail(
                         </td>
                       </tr>
                       <tr>
-                        <td style="padding: 24px;">
+                        <td style="padding: 20px; border-bottom: 1px solid #e5e7eb;">
                           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                             <tr>
                               <td width="50%">
-                                <p style="margin: 0; color: #6b7280; font-size: 12px; text-transform: uppercase;">Échéance</p>
-                                <p style="margin: 4px 0 0 0; color: #dc2626; font-size: 16px; font-weight: bold;">${dueDate}</p>
+                                <p style="margin: 0; color: #6b7280; font-size: 12px; text-transform: uppercase;">${paymentDateLabel}</p>
+                                <p style="margin: 4px 0 0 0; color: ${paymentDateColor}; font-size: 16px; font-weight: bold;">${paymentDateValue}</p>
                               </td>
                               <td width="50%" align="right">
-                                <p style="margin: 0; color: #6b7280; font-size: 12px; text-transform: uppercase;">Montant TTC</p>
-                                <p style="margin: 4px 0 0 0; color: #0064FA; font-size: 24px; font-weight: bold;">${totalAmount}</p>
+                                <p style="margin: 0; color: #6b7280; font-size: 12px; text-transform: uppercase;">Mode de paiement</p>
+                                <p style="margin: 4px 0 0 0; color: #1a1a1a; font-size: 16px; font-weight: bold;">${displayPaymentMethod}</p>
                               </td>
                             </tr>
                           </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 24px;" align="center">
+                          <p style="margin: 0; color: #6b7280; font-size: 12px; text-transform: uppercase;">Montant TTC</p>
+                          <p style="margin: 4px 0 0 0; color: #0064FA; font-size: 28px; font-weight: bold;">${totalAmount}</p>
                         </td>
                       </tr>
                     </table>
