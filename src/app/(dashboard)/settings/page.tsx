@@ -1610,13 +1610,110 @@ function SettingsContent() {
 
               {o365Enabled && (
                 <>
-                  <div className="rounded-xl p-4" style={{ background: "#E3F2FD", border: "1px solid #0064FA" }}>
-                    <h4 className="font-medium mb-2" style={{ color: "#0064FA" }}>Configuration Azure AD</h4>
-                    <ol className="text-sm space-y-1 list-decimal list-inside" style={{ color: "#0064FA" }}>
-                      <li>Créez une application dans <a href="https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps" target="_blank" rel="noopener noreferrer" className="underline">Azure AD</a></li>
-                      <li>Ajoutez les permissions Microsoft Graph : Mail.Read, Mail.Send</li>
-                      <li>Créez un secret client et copiez les identifiants</li>
-                    </ol>
+                  <div className="rounded-xl p-4 space-y-4" style={{ background: "#E3F2FD", border: "1px solid #0064FA" }}>
+                    <div>
+                      <h4 className="font-medium mb-2 flex items-center gap-2" style={{ color: "#0064FA" }}>
+                        <span>Configuration Azure AD</span>
+                        <a href="https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps" target="_blank" rel="noopener noreferrer" className="text-xs underline hover:no-underline">
+                          Ouvrir le portail Azure →
+                        </a>
+                      </h4>
+                      <ol className="text-sm space-y-1 list-decimal list-inside mb-3" style={{ color: "#0064FA" }}>
+                        <li>Créez une application dans Azure AD (App registrations)</li>
+                        <li>Configurez le Redirect URI : <code className="bg-white/50 px-1 rounded text-xs">https://crm.julienronot.fr/api/auth/callback/azure-ad</code></li>
+                        <li>Ajoutez les permissions Microsoft Graph (voir tableau ci-dessous)</li>
+                        <li>Créez un Client Secret et copiez les identifiants</li>
+                        <li><strong>Important :</strong> Pour les permissions Application, cliquez sur &quot;Grant admin consent&quot;</li>
+                      </ol>
+                    </div>
+
+                    {/* Permissions Table */}
+                    <div className="rounded-lg overflow-hidden" style={{ background: "white" }}>
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr style={{ background: "#0064FA", color: "white" }}>
+                            <th className="px-3 py-2 text-left font-medium">Permission</th>
+                            <th className="px-3 py-2 text-left font-medium">Type</th>
+                            <th className="px-3 py-2 text-left font-medium">Fonction</th>
+                          </tr>
+                        </thead>
+                        <tbody style={{ color: "#333" }}>
+                          {/* SSO Permissions Header */}
+                          <tr style={{ background: "#E8F5E9" }}>
+                            <td colSpan={3} className="px-3 py-1.5 font-semibold" style={{ color: "#2E7D32" }}>
+                              🔐 SSO (Authentification)
+                            </td>
+                          </tr>
+                          <tr style={{ borderBottom: "1px solid #EEE" }}>
+                            <td className="px-3 py-1.5 font-mono">openid</td>
+                            <td className="px-3 py-1.5"><span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#E3F2FD", color: "#1565C0" }}>Delegated</span></td>
+                            <td className="px-3 py-1.5">Connexion OpenID Connect</td>
+                          </tr>
+                          <tr style={{ borderBottom: "1px solid #EEE" }}>
+                            <td className="px-3 py-1.5 font-mono">profile</td>
+                            <td className="px-3 py-1.5"><span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#E3F2FD", color: "#1565C0" }}>Delegated</span></td>
+                            <td className="px-3 py-1.5">Accès au profil utilisateur</td>
+                          </tr>
+                          <tr style={{ borderBottom: "1px solid #EEE" }}>
+                            <td className="px-3 py-1.5 font-mono">email</td>
+                            <td className="px-3 py-1.5"><span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#E3F2FD", color: "#1565C0" }}>Delegated</span></td>
+                            <td className="px-3 py-1.5">Accès à l&apos;email de l&apos;utilisateur</td>
+                          </tr>
+                          <tr style={{ borderBottom: "1px solid #EEE" }}>
+                            <td className="px-3 py-1.5 font-mono">User.Read</td>
+                            <td className="px-3 py-1.5"><span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#E3F2FD", color: "#1565C0" }}>Delegated</span></td>
+                            <td className="px-3 py-1.5">Lire le profil utilisateur connecté</td>
+                          </tr>
+                          <tr style={{ borderBottom: "1px solid #EEE" }}>
+                            <td className="px-3 py-1.5 font-mono">offline_access</td>
+                            <td className="px-3 py-1.5"><span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#E3F2FD", color: "#1565C0" }}>Delegated</span></td>
+                            <td className="px-3 py-1.5">Refresh token pour sessions longues</td>
+                          </tr>
+                          <tr style={{ borderBottom: "1px solid #EEE" }}>
+                            <td className="px-3 py-1.5 font-mono">Group.Read.All</td>
+                            <td className="px-3 py-1.5"><span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#FFF3E0", color: "#E65100" }}>Application</span></td>
+                            <td className="px-3 py-1.5">Récupérer les groupes AD (filtrage SSO)</td>
+                          </tr>
+                          {/* Tickets Permissions Header */}
+                          <tr style={{ background: "#FFF8E1" }}>
+                            <td colSpan={3} className="px-3 py-1.5 font-semibold" style={{ color: "#F57C00" }}>
+                              📧 Tickets (Synchronisation emails)
+                            </td>
+                          </tr>
+                          <tr style={{ borderBottom: "1px solid #EEE" }}>
+                            <td className="px-3 py-1.5 font-mono">Mail.Read</td>
+                            <td className="px-3 py-1.5"><span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#FFF3E0", color: "#E65100" }}>Application</span></td>
+                            <td className="px-3 py-1.5">Lire les emails de la boîte support</td>
+                          </tr>
+                          <tr style={{ borderBottom: "1px solid #EEE" }}>
+                            <td className="px-3 py-1.5 font-mono">Mail.ReadBasic</td>
+                            <td className="px-3 py-1.5"><span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#FFF3E0", color: "#E65100" }}>Application</span></td>
+                            <td className="px-3 py-1.5">Lire les métadonnées des emails</td>
+                          </tr>
+                          <tr style={{ borderBottom: "1px solid #EEE" }}>
+                            <td className="px-3 py-1.5 font-mono">Mail.Send</td>
+                            <td className="px-3 py-1.5"><span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#FFF3E0", color: "#E65100" }}>Application</span></td>
+                            <td className="px-3 py-1.5">Envoyer des réponses aux tickets</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-1.5 font-mono">Mail.ReadWrite</td>
+                            <td className="px-3 py-1.5"><span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#FFF3E0", color: "#E65100" }}>Application</span></td>
+                            <td className="px-3 py-1.5">Marquer comme lu, déplacer, archiver</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="text-xs space-y-1" style={{ color: "#1565C0" }}>
+                      <p className="flex items-center gap-1.5">
+                        <span className="px-1.5 py-0.5 rounded" style={{ background: "#E3F2FD" }}>Delegated</span>
+                        = L&apos;utilisateur doit consentir (pour SSO)
+                      </p>
+                      <p className="flex items-center gap-1.5">
+                        <span className="px-1.5 py-0.5 rounded" style={{ background: "#FFF3E0", color: "#E65100" }}>Application</span>
+                        = Admin consent requis (pour tickets/groupes)
+                      </p>
+                    </div>
                   </div>
 
                   <div className="space-y-4">
