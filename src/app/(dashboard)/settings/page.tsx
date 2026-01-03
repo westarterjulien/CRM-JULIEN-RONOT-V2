@@ -1620,7 +1620,7 @@ function SettingsContent() {
                       </h4>
                       <ol className="text-sm space-y-1 list-decimal list-inside mb-3" style={{ color: "#0064FA" }}>
                         <li>Créez une application dans Azure AD (App registrations)</li>
-                        <li>Configurez le Redirect URI : <code className="bg-white/50 px-1 rounded text-xs">https://crm.julienronot.fr/api/auth/callback/azure-ad</code></li>
+                        <li>Configurez le Redirect URI : <code className="bg-white/50 px-1 rounded text-xs">https://crm.julienronot.fr/api/auth/microsoft/callback</code></li>
                         <li>Ajoutez les permissions Microsoft Graph (voir tableau ci-dessous)</li>
                         <li>Créez un Client Secret et copiez les identifiants</li>
                         <li><strong>Important :</strong> Pour les permissions Application, cliquez sur &quot;Grant admin consent&quot;</li>
