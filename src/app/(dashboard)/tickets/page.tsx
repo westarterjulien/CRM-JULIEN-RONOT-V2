@@ -21,6 +21,9 @@ import {
   Flame,
   Zap,
   CircleDot,
+  RefreshCw,
+  Mail,
+  Loader2,
 } from "lucide-react"
 
 interface Ticket {
@@ -71,6 +74,17 @@ export default function TicketsPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
+  // O365 sync states
+  const [o365Status, setO365Status] = useState<{
+    enabled: boolean
+    configured: boolean
+    connected: boolean
+    connectedEmail: string | null
+    lastSync: string | null
+  } | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [syncMessage, setSyncMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
   const fetchTickets = useCallback(async () => {
     try {
       const params = new URLSearchParams()
@@ -92,9 +106,47 @@ export default function TicketsPage() {
     }
   }, [search, statusFilter, priorityFilter, page])
 
+  // Fetch O365 sync status
+  const fetchO365Status = useCallback(async () => {
+    try {
+      const res = await fetch("/api/tickets/sync-o365")
+      if (res.ok) {
+        const data = await res.json()
+        setO365Status(data)
+      }
+    } catch (error) {
+      console.error("Error fetching O365 status:", error)
+    }
+  }, [])
+
+  // Sync O365 emails
+  const handleO365Sync = async () => {
+    if (syncing) return
+    setSyncing(true)
+    setSyncMessage(null)
+    try {
+      const res = await fetch("/api/tickets/sync-o365", { method: "POST" })
+      const data = await res.json()
+      if (data.success) {
+        setSyncMessage({ type: "success", text: data.message })
+        fetchTickets()
+        fetchO365Status()
+      } else {
+        setSyncMessage({ type: "error", text: data.message || "Erreur de synchronisation" })
+      }
+    } catch (error) {
+      setSyncMessage({ type: "error", text: "Erreur lors de la synchronisation" })
+    } finally {
+      setSyncing(false)
+      // Clear message after 5 seconds
+      setTimeout(() => setSyncMessage(null), 5000)
+    }
+  }
+
   useEffect(() => {
     fetchTickets()
-  }, [fetchTickets])
+    fetchO365Status()
+  }, [fetchTickets, fetchO365Status])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -275,7 +327,50 @@ export default function TicketsPage() {
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
+            {/* Sync message */}
+            {syncMessage && (
+              <span
+                className="text-sm px-3 py-1.5 rounded-lg"
+                style={{
+                  background: syncMessage.type === "success" ? "#D4EDDA" : "#FEE2E8",
+                  color: syncMessage.type === "success" ? "#28B95F" : "#F04B69",
+                }}
+              >
+                {syncMessage.text}
+              </span>
+            )}
+
+            {/* O365 Sync button */}
+            {o365Status?.enabled && o365Status?.connected && (
+              <button
+                onClick={handleO365Sync}
+                disabled={syncing}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all hover:opacity-90 disabled:opacity-50"
+                style={{ background: "#0064FA", color: "#FFFFFF" }}
+                title={o365Status.lastSync ? `Dernière sync: ${new Date(o365Status.lastSync).toLocaleString("fr-FR")}` : "Jamais synchronisé"}
+              >
+                {syncing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                <span className="hidden sm:inline">{syncing ? "Sync..." : "Sync O365"}</span>
+              </button>
+            )}
+
+            {/* Show connection status if enabled but not connected */}
+            {o365Status?.enabled && !o365Status?.connected && (
+              <Link
+                href="/settings?tab=integrations"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
+                style={{ background: "#FEF3CD", color: "#F0783C" }}
+              >
+                <Mail className="h-4 w-4" />
+                <span className="hidden sm:inline">Connecter O365</span>
+              </Link>
+            )}
+
             <Link
               href="/settings?tab=integrations"
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all hover:bg-[#EEEEEE]"

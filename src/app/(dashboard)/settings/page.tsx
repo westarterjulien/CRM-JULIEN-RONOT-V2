@@ -36,6 +36,7 @@ import {
   PenTool,
   Webhook,
   Landmark,
+  XCircle,
 } from "lucide-react"
 import Image from "next/image"
 import { useTenant } from "@/contexts/tenant-context"
@@ -1783,26 +1784,49 @@ function SettingsContent() {
                           </div>
                         </div>
                         {o365ClientId && o365ClientSecret && o365TenantId && o365SupportEmail && (
-                          <button
-                            onClick={() => {
-                              setConnectingO365Mailbox(true)
-                              window.location.href = "/api/tickets/o365-connect"
-                            }}
-                            disabled={connectingO365Mailbox}
-                            className="px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-50"
-                            style={{
-                              background: o365MailboxConnected ? "#FFFFFF" : "#F57C00",
-                              color: o365MailboxConnected ? "#F57C00" : "#FFFFFF",
-                              border: o365MailboxConnected ? "1px solid #F57C00" : "none"
-                            }}
-                          >
-                            {connectingO365Mailbox ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <ExternalLink className="h-4 w-4" />
+                          <div className="flex items-center gap-2">
+                            {o365MailboxConnected && (
+                              <button
+                                onClick={async () => {
+                                  if (!confirm("Déconnecter la boîte mail O365 ? Vous devrez la reconnecter pour synchroniser les emails.")) return
+                                  try {
+                                    const res = await fetch("/api/tickets/o365-disconnect", { method: "POST" })
+                                    if (res.ok) {
+                                      setO365MailboxConnected(false)
+                                      setO365ConnectedEmail("")
+                                    }
+                                  } catch (error) {
+                                    console.error("Disconnect error:", error)
+                                  }
+                                }}
+                                className="px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-opacity hover:opacity-90"
+                                style={{ background: "#FEE2E8", color: "#F04B69" }}
+                              >
+                                <XCircle className="h-4 w-4" />
+                                Déconnecter
+                              </button>
                             )}
-                            {o365MailboxConnected ? "Reconnecter" : "Connecter la boîte mail"}
-                          </button>
+                            <button
+                              onClick={() => {
+                                setConnectingO365Mailbox(true)
+                                window.location.href = "/api/tickets/o365-connect"
+                              }}
+                              disabled={connectingO365Mailbox}
+                              className="px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-50"
+                              style={{
+                                background: o365MailboxConnected ? "#FFFFFF" : "#F57C00",
+                                color: o365MailboxConnected ? "#F57C00" : "#FFFFFF",
+                                border: o365MailboxConnected ? "1px solid #F57C00" : "none"
+                              }}
+                            >
+                              {connectingO365Mailbox ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <ExternalLink className="h-4 w-4" />
+                              )}
+                              {o365MailboxConnected ? "Reconnecter" : "Connecter la boîte mail"}
+                            </button>
+                          </div>
                         )}
                       </div>
                       {!o365ClientId || !o365ClientSecret || !o365TenantId || !o365SupportEmail ? (
