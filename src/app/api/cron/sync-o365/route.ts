@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { notifyNewTicket, notifyClientReply, parseSlackConfig } from "@/lib/slack"
 
 // Vercel Cron Job - runs every 5 minutes
 // Configured in vercel.json
+
+// Get Slack config from tenant settings
+async function getSlackConfig() {
+  const tenant = await prisma.tenants.findFirst({
+    where: { id: BigInt(1) },
+  })
+  if (!tenant?.settings) return null
+  const settings = JSON.parse(tenant.settings as string)
+  return parseSlackConfig(settings)
+}
 
 // Get O365 settings from tenant
 async function getO365Settings() {
@@ -242,6 +253,10 @@ export async function GET(request: NextRequest) {
     let updated = 0
     let skipped = 0
 
+    // Get Slack config for notifications
+    const slackConfig = await getSlackConfig()
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://crm.julienronot.fr"
+
     for (const email of messages) {
       const senderEmail = email.from?.emailAddress?.address?.toLowerCase()
       const senderName = email.from?.emailAddress?.name || senderEmail
@@ -257,7 +272,34 @@ export async function GET(request: NextRequest) {
         continue
       }
 
-      // Check if we already processed this email
+      // DISTRIBUTED LOCK: Mark email as read FIRST to prevent other servers from processing it
+      // This is an atomic operation on O365's side
+      try {
+        const markReadResponse = await fetch(
+          `https://graph.microsoft.com/v1.0/me/messages/${messageId}`,
+          {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ isRead: true }),
+          }
+        )
+
+        if (!markReadResponse.ok) {
+          // If we can't mark as read, another server might have done it
+          console.log(`[Cron] Could not mark email ${messageId} as read, skipping`)
+          skipped++
+          continue
+        }
+      } catch (e) {
+        console.error("[Cron] Failed to mark email as read:", e)
+        skipped++
+        continue
+      }
+
+      // Double-check if we already processed this email (in case of race condition)
       const existingMessage = await prisma.ticketMessage.findFirst({
         where: { emailMessageId: messageId },
       })
@@ -288,84 +330,144 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: "desc" },
       })
 
-      if (ticket) {
-        // Add message to existing ticket
-        await prisma.ticketMessage.create({
-          data: {
-            ticketId: ticket.id,
-            type: "email_in",
-            content: bodyHtml || bodyText,
-            from_email: senderEmail,
-            from_name: senderName,
-            emailMessageId: messageId,
-            client_id: client?.id,
-            createdAt: new Date(),
-          },
-        })
+      let isNewTicket = false
+      let newMessage
 
-        // Update ticket
-        await prisma.ticket.update({
-          where: { id: ticket.id },
-          data: {
-            status: ticket.status === "closed" ? "open" : ticket.status,
-            lastActivityAt: new Date(),
-            updatedAt: new Date(),
-          },
-        })
+      try {
+        if (ticket) {
+          // Add message to existing ticket
+          newMessage = await prisma.ticketMessage.create({
+            data: {
+              ticketId: ticket.id,
+              type: "email_in",
+              content: bodyHtml || bodyText,
+              from_email: senderEmail,
+              from_name: senderName,
+              emailMessageId: messageId,
+              client_id: client?.id,
+              createdAt: new Date(),
+            },
+          })
 
-        updated++
-      } else {
-        // Create new ticket
-        const ticketNumber = await generateTicketNumber()
+          // Update ticket
+          await prisma.ticket.update({
+            where: { id: ticket.id },
+            data: {
+              status: ticket.status === "closed" ? "open" : ticket.status,
+              lastActivityAt: new Date(),
+              updatedAt: new Date(),
+            },
+          })
 
-        ticket = await prisma.ticket.create({
-          data: {
-            tenant_id: BigInt(1),
-            ticketNumber,
-            subject,
-            senderEmail: senderEmail || "unknown@email.com",
-            senderName,
-            status: "new",
-            priority: "normal",
-            clientId: client?.id,
-            emailMessageId: conversationId,
-            lastActivityAt: new Date(),
-            createdAt: new Date(),
-          },
-        })
+          updated++
+        } else {
+          // Create new ticket
+          const ticketNumber = await generateTicketNumber()
+          isNewTicket = true
 
-        // Create first message
-        await prisma.ticketMessage.create({
-          data: {
-            ticketId: ticket.id,
-            type: "email_in",
-            content: bodyHtml || bodyText,
-            from_email: senderEmail,
-            from_name: senderName,
-            emailMessageId: messageId,
-            client_id: client?.id,
-            createdAt: new Date(),
-          },
-        })
+          ticket = await prisma.ticket.create({
+            data: {
+              tenant_id: BigInt(1),
+              ticketNumber,
+              subject,
+              senderEmail: senderEmail || "unknown@email.com",
+              senderName,
+              status: "new",
+              priority: "normal",
+              clientId: client?.id,
+              emailMessageId: conversationId,
+              lastActivityAt: new Date(),
+              createdAt: new Date(),
+            },
+          })
 
-        created++
+          // Create first message
+          newMessage = await prisma.ticketMessage.create({
+            data: {
+              ticketId: ticket.id,
+              type: "email_in",
+              content: bodyHtml || bodyText,
+              from_email: senderEmail,
+              from_name: senderName,
+              emailMessageId: messageId,
+              client_id: client?.id,
+              createdAt: new Date(),
+            },
+          })
+
+          created++
+        }
+      } catch (dbError) {
+        // If duplicate key error, another server already processed this email
+        if (dbError instanceof Error && dbError.message.includes("Unique constraint")) {
+          console.log(`[Cron] Email ${messageId} already processed by another server, skipping`)
+          skipped++
+          continue
+        }
+        throw dbError // Re-throw other errors
       }
 
-      // Mark email as read
-      try {
-        await fetch(
-          `https://graph.microsoft.com/v1.0/me/messages/${messageId}`,
-          {
-            method: "PATCH",
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ isRead: true }),
+      // Send Slack notification
+      if (slackConfig && slackConfig.slackEnabled) {
+        try {
+          const ticketUrl = `${baseUrl}/tickets/${ticket.id}`
+
+          if (isNewTicket && slackConfig.slackNotifyOnNew) {
+            // New ticket notification
+            const result = await notifyNewTicket(
+              slackConfig,
+              {
+                id: ticket.id.toString(),
+                ticketNumber: ticket.ticketNumber,
+                subject: ticket.subject,
+                priority: ticket.priority,
+                status: ticket.status,
+                senderName: ticket.senderName,
+                senderEmail: ticket.senderEmail,
+              },
+              {
+                id: newMessage.id.toString(),
+                content: bodyText || bodyHtml.substring(0, 500),
+                fromName: senderName || null,
+                fromEmail: senderEmail || null,
+              },
+              ticketUrl
+            )
+
+            // Store Slack timestamp for thread replies
+            if (result.success && result.slackTs) {
+              await prisma.ticket.update({
+                where: { id: ticket.id },
+                data: { slackTs: result.slackTs },
+              })
+            }
+          } else if (!isNewTicket && slackConfig.slackNotifyOnReply) {
+            // Reply notification (client replied to existing ticket)
+            await notifyClientReply(
+              slackConfig,
+              {
+                id: ticket.id.toString(),
+                ticketNumber: ticket.ticketNumber,
+                subject: ticket.subject,
+                priority: ticket.priority,
+                status: ticket.status,
+                senderName: ticket.senderName,
+                senderEmail: ticket.senderEmail,
+              },
+              {
+                id: newMessage.id.toString(),
+                content: bodyText || bodyHtml.substring(0, 500),
+                fromName: senderName || null,
+                fromEmail: senderEmail || null,
+              },
+              ticketUrl,
+              ticket.slackTs || undefined
+            )
           }
-        )
-      } catch (e) {
-        console.error("[Cron] Failed to mark email as read:", e)
+        } catch (slackError) {
+          console.error("[Cron] Slack notification error:", slackError)
+          // Don't fail the sync if Slack fails
+        }
       }
     }
 
