@@ -6,7 +6,11 @@ import { prisma } from "./prisma"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+    maxAge: 8 * 60 * 60, // 8 heures - expiration de session pour sécurité
+    updateAge: 60 * 60, // Rafraîchir le token toutes les heures si actif
+  },
   pages: {
     signIn: "/login",
   },

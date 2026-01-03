@@ -80,9 +80,24 @@ export async function GET() {
       slackWebhookUrl: rawSettings.slackWebhookUrl || rawSettings.slack_webhook_url || "",
       slackBotToken: rawSettings.slackBotToken || rawSettings.slack_bot_token || "",
       slackChannelId: rawSettings.slackChannelId || rawSettings.slack_channel_id || "",
-      slackNotifyOnNew: rawSettings.slackNotifyOnNew || rawSettings.slack_notify_on_new || false,
-      slackNotifyOnReply: rawSettings.slackNotifyOnReply || rawSettings.slack_notify_on_reply || false,
+      slackNotifyOnNew: rawSettings.slackNotifyOnNew ?? rawSettings.slack_notify_on_new ?? true,
+      slackNotifyOnReply: rawSettings.slackNotifyOnReply ?? rawSettings.slack_notify_on_reply ?? true,
       slackNotifyOnAssign: rawSettings.slackNotifyOnAssign || rawSettings.slack_notify_on_assign || false,
+
+      // OpenAI
+      openaiEnabled: rawSettings.openaiEnabled || rawSettings.openai_enabled || false,
+      openaiApiKey: rawSettings.openaiApiKey || rawSettings.openai_api_key || "",
+      openaiModel: rawSettings.openaiModel || rawSettings.openai_model || "gpt-4o-mini",
+      openaiAutoSuggest: rawSettings.openaiAutoSuggest ?? rawSettings.openai_auto_suggest ?? true,
+      openaiAutoClassify: rawSettings.openaiAutoClassify ?? rawSettings.openai_auto_classify ?? false,
+
+      // O365
+      o365Enabled: rawSettings.o365Enabled || rawSettings.o365_enabled || false,
+      o365ClientId: rawSettings.o365ClientId || rawSettings.o365_client_id || "",
+      o365ClientSecret: rawSettings.o365ClientSecret || rawSettings.o365_client_secret || "",
+      o365TenantId: rawSettings.o365TenantId || rawSettings.o365_tenant_id || "",
+      o365SupportEmail: rawSettings.o365SupportEmail || rawSettings.o365_support_email || "",
+      o365AutoSync: rawSettings.o365AutoSync ?? rawSettings.o365_auto_sync ?? false,
     }
 
     return NextResponse.json({
@@ -293,10 +308,48 @@ export async function PUT(request: NextRequest) {
         slackWebhookUrl: body.slackWebhookUrl || "",
         slackBotToken: body.slackBotToken || "",
         slackChannelId: body.slackChannelId || "",
-        slackNotifyOnNew: body.slackNotifyOnNew || false,
-        slackNotifyOnReply: body.slackNotifyOnReply || false,
+        slackNotifyOnNew: body.slackNotifyOnNew ?? true,
+        slackNotifyOnReply: body.slackNotifyOnReply ?? true,
         slackNotifyOnAssign: body.slackNotifyOnAssign || false,
       }
+
+      await prisma.tenants.update({
+        where: { id: BigInt(1) },
+        data: {
+          settings: JSON.stringify(updatedSettings),
+          updated_at: new Date(),
+        },
+      })
+
+      return NextResponse.json({ success: true })
+    }
+
+    if (body.section === "integrations") {
+      // Handle all integrations - partial updates based on what's provided
+      const updatedSettings = { ...currentSettings }
+
+      // Slack settings
+      if (body.slackEnabled !== undefined) updatedSettings.slackEnabled = body.slackEnabled
+      if (body.slackWebhookUrl !== undefined) updatedSettings.slackWebhookUrl = body.slackWebhookUrl
+      if (body.slackBotToken !== undefined) updatedSettings.slackBotToken = body.slackBotToken
+      if (body.slackChannelId !== undefined) updatedSettings.slackChannelId = body.slackChannelId
+      if (body.slackNotifyOnNew !== undefined) updatedSettings.slackNotifyOnNew = body.slackNotifyOnNew
+      if (body.slackNotifyOnReply !== undefined) updatedSettings.slackNotifyOnReply = body.slackNotifyOnReply
+
+      // OpenAI settings
+      if (body.openaiEnabled !== undefined) updatedSettings.openaiEnabled = body.openaiEnabled
+      if (body.openaiApiKey !== undefined) updatedSettings.openaiApiKey = body.openaiApiKey
+      if (body.openaiModel !== undefined) updatedSettings.openaiModel = body.openaiModel
+      if (body.openaiAutoSuggest !== undefined) updatedSettings.openaiAutoSuggest = body.openaiAutoSuggest
+      if (body.openaiAutoClassify !== undefined) updatedSettings.openaiAutoClassify = body.openaiAutoClassify
+
+      // O365 settings
+      if (body.o365Enabled !== undefined) updatedSettings.o365Enabled = body.o365Enabled
+      if (body.o365ClientId !== undefined) updatedSettings.o365ClientId = body.o365ClientId
+      if (body.o365ClientSecret !== undefined) updatedSettings.o365ClientSecret = body.o365ClientSecret
+      if (body.o365TenantId !== undefined) updatedSettings.o365TenantId = body.o365TenantId
+      if (body.o365SupportEmail !== undefined) updatedSettings.o365SupportEmail = body.o365SupportEmail
+      if (body.o365AutoSync !== undefined) updatedSettings.o365AutoSync = body.o365AutoSync
 
       await prisma.tenants.update({
         where: { id: BigInt(1) },

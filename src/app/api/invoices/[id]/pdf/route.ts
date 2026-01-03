@@ -327,7 +327,7 @@ function generateInvoiceHTML(invoice: any, tenant: any, settings: any): string {
   <div class="invoice-container">
     <div class="header">
       <div class="company-info">
-        ${tenant?.logo ? `<img src="/uploads/${tenant.logo}" alt="Logo" class="company-logo" />` : ""}
+        ${tenant?.logo ? `<img src="${tenant.logo.startsWith('data:') ? tenant.logo : '/uploads/' + tenant.logo}" alt="Logo" class="company-logo" />` : ""}
         <div class="company-details">
           <h1>${tenant?.name || "Mon Entreprise"}</h1>
           <p>${tenant?.address || ""}</p>

@@ -277,12 +277,12 @@ export default function TicketsPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
-              href="/tickets/settings"
+              href="/settings?tab=integrations"
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all hover:bg-[#EEEEEE]"
               style={{ background: "#F5F5F7", color: "#444444" }}
             >
               <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Paramètres</span>
+              <span className="hidden sm:inline">Intégrations</span>
             </Link>
             <Link
               href="/tickets/new"
