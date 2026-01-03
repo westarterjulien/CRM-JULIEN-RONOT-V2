@@ -118,11 +118,11 @@ const statusColors: Record<string, string> = {
 
 const statusLabels: Record<string, string> = {
   draft: "Brouillon",
-  sent: "Envoyee",
-  paid: "Payee",
+  sent: "Envoyée",
+  paid: "Payée",
   overdue: "En retard",
-  accepted: "Accepte",
-  refused: "Refuse",
+  accepted: "Accepté",
+  refused: "Refusé",
 }
 
 export default async function DashboardPage() {
@@ -138,7 +138,7 @@ export default async function DashboardPage() {
             Bonjour <span className="bg-gradient-to-r from-violet-400 to-purple-500 bg-clip-text text-transparent">!</span>
           </h1>
           <p className="text-muted-foreground mt-1">
-            Voici un apercu de votre activite
+            Voici un aperçu de votre activité
           </p>
         </div>
         <DateDisplay />
@@ -318,8 +318,8 @@ export default async function DashboardPage() {
                 <FileText className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h3 className="font-semibold text-white">Dernieres factures</h3>
-                <p className="text-xs text-white/40">Les 5 plus recentes</p>
+                <h3 className="font-semibold text-white">Dernières factures</h3>
+                <p className="text-xs text-white/40">Les 5 plus récentes</p>
               </div>
             </div>
             <Link href="/invoices" className="text-xs text-violet-400 hover:text-violet-300 transition-colors">

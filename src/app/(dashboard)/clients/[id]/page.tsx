@@ -145,17 +145,17 @@ function getStatusBadge(status: string, type: "client" | "invoice" | "quote" | "
     active: "Client",
     prospect: "Prospect",
     inactive: "Inactif",
-    paid: "Payee",
-    sent: "Envoyee",
+    paid: "Payée",
+    sent: "Envoyée",
     draft: "Brouillon",
     overdue: "En retard",
-    accepted: "Accepte",
-    rejected: "Refuse",
+    accepted: "Accepté",
+    rejected: "Refusé",
     new: "Nouveau",
     open: "Ouvert",
     pending: "En attente",
-    resolved: "Resolu",
-    closed: "Ferme",
+    resolved: "Résolu",
+    closed: "Fermé",
   }
 
   const style = styles[status] || { bg: "#F5F5F7", text: "#666666" }
@@ -428,7 +428,7 @@ export default function ClientDetailPage() {
             <div>
               <p className="text-xs" style={{ color: "#999999" }}>Factures</p>
               <p className="text-lg lg:text-xl font-bold" style={{ color: "#111111" }}>{stats.invoiceCount}</p>
-              <p className="text-xs" style={{ color: "#28B95F" }}>{stats.paidInvoices} payees</p>
+              <p className="text-xs" style={{ color: "#28B95F" }}>{stats.paidInvoices} payées</p>
             </div>
           </div>
         </div>
@@ -611,7 +611,7 @@ export default function ClientDetailPage() {
                     <Link href={`/invoices/new?clientId=${client.id}`}>
                       <Button className="rounded-xl text-white" style={{ background: "#0064FA" }}>
                         <Plus className="mr-2 h-4 w-4" />
-                        Creer une facture
+                        Créer une facture
                       </Button>
                     </Link>
                   </div>
@@ -620,9 +620,9 @@ export default function ClientDetailPage() {
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
-                          <TableHead>Numero</TableHead>
+                          <TableHead>Numéro</TableHead>
                           <TableHead>Date</TableHead>
-                          <TableHead>Echeance</TableHead>
+                          <TableHead>Échéance</TableHead>
                           <TableHead className="text-right">Montant</TableHead>
                           <TableHead>Statut</TableHead>
                           <TableHead></TableHead>
@@ -662,7 +662,7 @@ export default function ClientDetailPage() {
                     <Link href={`/quotes/new?clientId=${client.id}`}>
                       <Button className="rounded-xl text-white" style={{ background: "#DCB40A" }}>
                         <Plus className="mr-2 h-4 w-4" />
-                        Creer un devis
+                        Créer un devis
                       </Button>
                     </Link>
                   </div>
@@ -671,9 +671,9 @@ export default function ClientDetailPage() {
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
-                          <TableHead>Numero</TableHead>
+                          <TableHead>Numéro</TableHead>
                           <TableHead>Date</TableHead>
-                          <TableHead>Validite</TableHead>
+                          <TableHead>Validité</TableHead>
                           <TableHead className="text-right">Montant</TableHead>
                           <TableHead>Statut</TableHead>
                           <TableHead></TableHead>
@@ -713,7 +713,7 @@ export default function ClientDetailPage() {
                     <Link href={`/subscriptions/new?clientId=${client.id}`}>
                       <Button className="rounded-xl text-white" style={{ background: "#5F00BA" }}>
                         <Plus className="mr-2 h-4 w-4" />
-                        Creer un abonnement
+                        Créer un abonnement
                       </Button>
                     </Link>
                   </div>
@@ -724,7 +724,7 @@ export default function ClientDetailPage() {
                         <TableRow className="hover:bg-transparent">
                           <TableHead>Nom</TableHead>
                           <TableHead>Cycle</TableHead>
-                          <TableHead>Prochaine echeance</TableHead>
+                          <TableHead>Prochaine échéance</TableHead>
                           <TableHead className="text-right">Montant</TableHead>
                           <TableHead>Statut</TableHead>
                           <TableHead></TableHead>
@@ -771,7 +771,7 @@ export default function ClientDetailPage() {
                       <DialogHeader>
                         <DialogTitle>Ajouter un service</DialogTitle>
                         <DialogDescription>
-                          Associer un service recurrent ou ponctuel a ce client.
+                          Associer un service récurrent ou ponctuel à ce client.
                         </DialogDescription>
                       </DialogHeader>
                       <div className="grid gap-4 py-4">
@@ -779,7 +779,7 @@ export default function ClientDetailPage() {
                           <Label htmlFor="service">Service</Label>
                           <Select value={selectedServiceId} onValueChange={setSelectedServiceId}>
                             <SelectTrigger>
-                              <SelectValue placeholder="Selectionner un service" />
+                              <SelectValue placeholder="Sélectionner un service" />
                             </SelectTrigger>
                             <SelectContent>
                               {availableServices.filter(s => !s.alreadyAssigned).map((service) => (
@@ -788,7 +788,7 @@ export default function ClientDetailPage() {
                                     <span>{service.name}</span>
                                     <span className="text-gray-500">- {formatCurrency(service.unitPriceHt)}</span>
                                     {service.isRecurring && (
-                                      <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">Recurrent</span>
+                                      <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">Récurrent</span>
                                     )}
                                   </div>
                                 </SelectItem>
@@ -797,7 +797,7 @@ export default function ClientDetailPage() {
                           </Select>
                         </div>
                         <div className="grid gap-2">
-                          <Label htmlFor="quantity">Quantite</Label>
+                          <Label htmlFor="quantity">Quantité</Label>
                           <Input
                             id="quantity"
                             type="number"
@@ -825,8 +825,8 @@ export default function ClientDetailPage() {
                     <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: "#E8F8EE" }}>
                       <CreditCard className="h-8 w-8" style={{ color: "#28B95F" }} />
                     </div>
-                    <p className="font-medium" style={{ color: "#666666" }}>Aucun service associe</p>
-                    <p className="text-sm mt-2" style={{ color: "#999999" }}>Cliquez sur "Ajouter un service" pour associer des services a ce client.</p>
+                    <p className="font-medium" style={{ color: "#666666" }}>Aucun service associé</p>
+                    <p className="text-sm mt-2" style={{ color: "#999999" }}>Cliquez sur "Ajouter un service" pour associer des services à ce client.</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -848,7 +848,7 @@ export default function ClientDetailPage() {
                             <TableCell>
                               {cs.service.isRecurring ? (
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
-                                  Recurrent
+                                  Récurrent
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
@@ -988,7 +988,7 @@ export default function ClientDetailPage() {
                     <Link href={`/tickets/new?clientId=${client.id}`}>
                       <Button className="rounded-xl text-white" style={{ background: "#F0783C" }}>
                         <Plus className="mr-2 h-4 w-4" />
-                        Creer un ticket
+                        Créer un ticket
                       </Button>
                     </Link>
                   </div>
@@ -997,9 +997,9 @@ export default function ClientDetailPage() {
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
-                          <TableHead>Numero</TableHead>
+                          <TableHead>Numéro</TableHead>
                           <TableHead>Sujet</TableHead>
-                          <TableHead>Priorite</TableHead>
+                          <TableHead>Priorité</TableHead>
                           <TableHead>Date</TableHead>
                           <TableHead>Statut</TableHead>
                           <TableHead></TableHead>

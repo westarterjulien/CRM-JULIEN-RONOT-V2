@@ -176,7 +176,7 @@ export default function ClientServicesPage() {
           </div>
           <p className="font-medium" style={{ color: "#666666" }}>Aucun service actif</p>
           <p className="text-sm mt-2" style={{ color: "#999999" }}>
-            Contactez-nous pour souscrire a nos services.
+            Contactez-nous pour souscrire à nos services.
           </p>
         </div>
       ) : (
@@ -190,7 +190,7 @@ export default function ClientServicesPage() {
                 </div>
                 <div>
                   <h2 className="font-semibold" style={{ color: "#111111" }}>Abonnements</h2>
-                  <p className="text-xs" style={{ color: "#999999" }}>{recurringServices.length} service(s) recurrent(s)</p>
+                  <p className="text-xs" style={{ color: "#999999" }}>{recurringServices.length} service(s) récurrent(s)</p>
                 </div>
               </div>
               <div className="divide-y" style={{ borderColor: "#EEEEEE" }}>
@@ -204,7 +204,7 @@ export default function ClientServicesPage() {
                             className="px-2 py-0.5 rounded-full text-xs font-medium"
                             style={{ background: "#F3E8FF", color: "#5F00BA" }}
                           >
-                            Recurrent
+                            Récurrent
                           </span>
                         </div>
                         {service.description && (

@@ -318,7 +318,7 @@ export default function EditClientPage() {
             {/* Basic Info */}
             <Card>
               <CardHeader>
-                <CardTitle>Informations generales</CardTitle>
+                <CardTitle>Informations générales</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2">
                 {clientType === "company" ? (

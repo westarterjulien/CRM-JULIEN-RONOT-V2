@@ -149,7 +149,7 @@ export default function DomainRenewalsPage() {
                 Alertes de renouvellement
               </h1>
               <p className="text-white/80 mt-2">
-                Domaines a renouveler et factures a envoyer
+                Domaines à renouveler et factures à envoyer
               </p>
             </div>
 
@@ -319,7 +319,7 @@ export default function DomainRenewalsPage() {
               <CheckCircle className="h-8 w-8 text-emerald-500" />
             </div>
             <p className="text-gray-500 dark:text-gray-400 font-medium">
-              Aucun domaine a renouveler dans cette periode
+              Aucun domaine à renouveler dans cette période
             </p>
           </div>
         ) : (

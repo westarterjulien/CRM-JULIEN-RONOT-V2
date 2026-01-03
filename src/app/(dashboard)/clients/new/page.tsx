@@ -191,7 +191,7 @@ export default function NewClientPage() {
           </div>
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold" style={{ color: "#111111" }}>Nouveau Client</h1>
-            <p className="font-medium" style={{ color: "#666666" }}>Ajouter un nouveau client a votre base</p>
+            <p className="font-medium" style={{ color: "#666666" }}>Ajouter un nouveau client à votre base</p>
           </div>
         </div>
         <Button
@@ -201,7 +201,7 @@ export default function NewClientPage() {
           style={{ borderColor: "#EEEEEE", color: "#666666" }}
         >
           <ArrowLeft className="mr-2 h-5 w-5" />
-          Retour a la liste
+          Retour à la liste
         </Button>
       </div>
 
@@ -456,7 +456,7 @@ export default function NewClientPage() {
                       <Input
                         value={formData.companyName}
                         onChange={(e) => handleChange("companyName", e.target.value)}
-                        placeholder="Sera utilise pour la facturation"
+                        placeholder="Sera utilisé pour la facturation"
                         required
                         className={getInputClassName("companyName")}
                       />
@@ -696,7 +696,7 @@ export default function NewClientPage() {
                 ) : (
                   <>
                     <CheckCircle2 className="w-5 h-5 mr-2" />
-                    Creer le Client
+                    Créer le Client
                   </>
                 )}
               </Button>

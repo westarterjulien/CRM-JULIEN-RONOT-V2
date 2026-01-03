@@ -274,7 +274,7 @@ export default async function DashboardPage() {
           className="relative rounded-[16px] p-5 transition-shadow hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
           style={{ background: '#FFFFFF', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)' }}
         >
-          <span className="text-sm" style={{ color: '#666666' }}>Revenus recurrents</span>
+          <span className="text-sm" style={{ color: '#666666' }}>Revenus récurrents</span>
           <div className="flex items-baseline gap-1 mt-2">
             <span className="text-[48px] leading-none font-medium tracking-[-1px]" style={{ color: '#111111' }}>
               {formatCurrency(stats.mrr).replace(/[^0-9]/g, '').slice(0, -2) || '0'}
@@ -444,7 +444,7 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Objectif & Tresorerie */}
+      {/* Objectif & Trésorerie */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Objectif du mois */}
         <div
@@ -486,7 +486,7 @@ export default async function DashboardPage() {
 
             <div className="flex-1 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm" style={{ color: '#666666' }}>Realise</span>
+                <span className="text-sm" style={{ color: '#666666' }}>Réalisé</span>
                 <span className="text-sm font-medium" style={{ color: '#111111' }}>{formatCurrency(stats.monthlyRevenue)}</span>
               </div>
               <div className="flex items-center justify-between">
@@ -503,15 +503,15 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Tresorerie */}
+        {/* Trésorerie */}
         <div
           className="rounded-[16px] p-5 transition-shadow hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
           style={{ background: '#FFFFFF', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)' }}
         >
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-medium" style={{ color: '#111111' }}>Tresorerie attendue</h3>
+            <h3 className="text-base font-medium" style={{ color: '#111111' }}>Trésorerie attendue</h3>
             <Link href="/treasury" className="text-[13px] font-medium hover:underline" style={{ color: '#0064FA' }}>
-              Voir detail
+              Voir détail
             </Link>
           </div>
 
@@ -563,7 +563,7 @@ export default async function DashboardPage() {
       {/* Dernières factures */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[22px] leading-[28px] font-medium" style={{ color: '#111111' }}>Dernieres factures</h2>
+          <h2 className="text-[22px] leading-[28px] font-medium" style={{ color: '#111111' }}>Dernières factures</h2>
           <Link href="/invoices" className="text-[13px] font-medium hover:underline" style={{ color: '#0064FA' }}>
             Voir tout ({stats.totalInvoices})
           </Link>
@@ -588,7 +588,7 @@ export default async function DashboardPage() {
                     invoice.status === "sent" ? "#E3F2FD" :
                     invoice.status === "overdue" ? "#FEE2E8" : "#F5F5F7"
                 }}>
-                  {invoice.status === "paid" ? "Payee" : invoice.status === "sent" ? "Envoyee" : invoice.status === "overdue" ? "En retard" : "Brouillon"}
+                  {invoice.status === "paid" ? "Payée" : invoice.status === "sent" ? "Envoyée" : invoice.status === "overdue" ? "En retard" : "Brouillon"}
                 </span>
               </div>
               <p className="text-sm font-medium mb-1" style={{ color: '#111111' }}>{invoice.invoiceNumber}</p>
@@ -599,7 +599,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Tout est a jour */}
+      {/* Tout est à jour */}
       {stats.overdueInvoicesList.length === 0 && stats.draftInvoicesList.length === 0 && stats.pendingQuotesList.length === 0 && (
         <div
           className="rounded-[16px] p-12 text-center"
@@ -608,8 +608,8 @@ export default async function DashboardPage() {
           <div className="w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: '#D4EDDA' }}>
             <CheckCircle className="w-10 h-10" style={{ color: '#28B95F' }} />
           </div>
-          <h3 className="text-lg font-medium mb-2" style={{ color: '#111111' }}>Tout est a jour !</h3>
-          <p className="text-sm" style={{ color: '#666666' }}>Aucun element en attente de traitement.</p>
+          <h3 className="text-lg font-medium mb-2" style={{ color: '#111111' }}>Tout est à jour !</h3>
+          <p className="text-sm" style={{ color: '#666666' }}>Aucun élément en attente de traitement.</p>
         </div>
       )}
     </div>
