@@ -25,6 +25,7 @@ import {
   Mail,
   Loader2,
 } from "lucide-react"
+import { StyledSelect, statusOptions, priorityOptions } from "@/components/ui/styled-select"
 
 interface Ticket {
   id: string
@@ -458,31 +459,22 @@ export default function TicketsPage() {
             />
           </div>
           <div className="flex gap-2">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2"
-              style={{ background: "#F5F5F7", border: "1px solid #EEEEEE", color: "#444444" }}
-            >
-              <option value="all">Tous les statuts</option>
-              <option value="new">Nouveau</option>
-              <option value="open">Ouvert</option>
-              <option value="pending">En attente</option>
-              <option value="resolved">Résolu</option>
-              <option value="closed">Fermé</option>
-            </select>
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              className="px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2"
-              style={{ background: "#F5F5F7", border: "1px solid #EEEEEE", color: "#444444" }}
-            >
-              <option value="all">Toutes priorités</option>
-              <option value="urgent">Urgent</option>
-              <option value="high">Haute</option>
-              <option value="normal">Normale</option>
-              <option value="low">Basse</option>
-            </select>
+            <div className="w-44">
+              <StyledSelect
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={statusOptions}
+                placeholder="Tous les statuts"
+              />
+            </div>
+            <div className="w-44">
+              <StyledSelect
+                value={priorityFilter}
+                onChange={setPriorityFilter}
+                options={priorityOptions}
+                placeholder="Toutes priorités"
+              />
+            </div>
           </div>
         </div>
       </div>

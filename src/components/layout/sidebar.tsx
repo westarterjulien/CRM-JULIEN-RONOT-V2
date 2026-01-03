@@ -457,31 +457,58 @@ export function Sidebar({ isOpen: mobileOpen, onClose }: SidebarProps) {
           )}
         </Link>
 
-        {/* User */}
-        {showLabels && (
-          <div
-            className="flex items-center gap-3 px-3 py-2.5 mt-2 rounded-2xl cursor-pointer transition-colors"
-            style={{ background: theme.itemHover }}
-          >
-            <div className="relative">
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ background: theme.accentSecondary }}
+        {/* User / Mon compte */}
+        <Link
+          href="/account"
+          onMouseEnter={() => setHoveredItem("account")}
+          onMouseLeave={() => setHoveredItem(null)}
+          className="flex items-center gap-3 px-3 py-2.5 mt-2 rounded-2xl transition-colors relative"
+          style={{ background: isActive("/account") ? theme.itemActive : theme.itemHover }}
+        >
+          <div className="relative">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center"
+              style={{ background: isActive("/account") ? "#FFFFFF" : theme.accentSecondary }}
+            >
+              <span
+                className="text-[11px] font-semibold"
+                style={{ color: isActive("/account") ? theme.accentSecondary : "#FFFFFF" }}
               >
-                <span className="text-[11px] font-semibold text-white">{userInitials}</span>
-              </div>
-              <div
-                className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2"
-                style={{ background: "#28B95F", borderColor: theme.sidebarBgSolid }}
-              />
+                {userInitials}
+              </span>
             </div>
+            <div
+              className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2"
+              style={{ background: "#28B95F", borderColor: theme.sidebarBgSolid }}
+            />
+          </div>
+          {showLabels && (
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-medium truncate" style={{ color: theme.textActive }}>
                 {session?.user?.name || "Utilisateur"}
               </p>
+              <p className="text-[10px] truncate" style={{ color: theme.textMuted }}>
+                Mon compte
+              </p>
             </div>
-          </div>
-        )}
+          )}
+          {!showLabels && hoveredItem === "account" && (
+            <div
+              className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-2 rounded-lg text-[13px] font-medium whitespace-nowrap z-50 shadow-lg"
+              style={{ background: theme.tooltipBg, color: theme.tooltipText }}
+            >
+              Mon compte
+              <div
+                className="absolute -left-1.5 top-1/2 -translate-y-1/2"
+                style={{
+                  borderTop: "6px solid transparent",
+                  borderBottom: "6px solid transparent",
+                  borderRight: `6px solid ${theme.tooltipBg}`,
+                }}
+              />
+            </div>
+          )}
+        </Link>
 
         {/* Logout */}
         <button

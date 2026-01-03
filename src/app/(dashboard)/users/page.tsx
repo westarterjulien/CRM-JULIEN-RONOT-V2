@@ -45,7 +45,21 @@ import {
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { StyledSelect, SelectOption, activeStatusOptions } from "@/components/ui/styled-select"
+
+const userRoleOptions: SelectOption[] = [
+  { value: "all", label: "Tous les rôles" },
+  { value: "super_admin", label: "Super Admin", color: "#DC2626" },
+  { value: "tenant_owner", label: "Propriétaire", color: "#7C3AED" },
+  { value: "tenant_admin", label: "Admin", color: "#7C3AED" },
+  { value: "tenant_user", label: "Utilisateur", color: "#2563EB" },
+]
+
+const userRoleFormOptions: SelectOption[] = [
+  { value: "tenant_user", label: "Utilisateur", color: "#2563EB" },
+  { value: "tenant_admin", label: "Admin", color: "#7C3AED" },
+  { value: "tenant_owner", label: "Propriétaire", color: "#7C3AED" },
+]
 
 interface UserType {
   id: string
@@ -68,13 +82,14 @@ interface Stats {
 }
 
 const roleConfig = {
-  admin: { label: "Admin", bg: "#F3E8FF", color: "#7C3AED", icon: ShieldCheck },
-  manager: { label: "Manager", bg: "#DBEAFE", color: "#2563EB", icon: Shield },
-  user: { label: "Utilisateur", bg: "#F5F5F7", color: "#666666", icon: Shield },
+  super_admin: { label: "Super Admin", bg: "#FEE2E2", color: "#DC2626", icon: ShieldCheck },
+  tenant_owner: { label: "Propriétaire", bg: "#F3E8FF", color: "#7C3AED", icon: ShieldCheck },
+  tenant_admin: { label: "Admin", bg: "#F3E8FF", color: "#7C3AED", icon: ShieldCheck },
+  tenant_user: { label: "Utilisateur", bg: "#DBEAFE", color: "#2563EB", icon: Shield },
 }
 
 function getRoleBadge(role: string) {
-  const config = roleConfig[role as keyof typeof roleConfig] || roleConfig.user
+  const config = roleConfig[role as keyof typeof roleConfig] || roleConfig.tenant_user
   const Icon = config.icon
   return (
     <span
@@ -138,7 +153,7 @@ export default function UsersPage() {
     name: "",
     email: "",
     password: "",
-    role: "user",
+    role: "tenant_user",
     phone: "",
     slackUserId: "",
     isActive: true,
@@ -161,7 +176,9 @@ export default function UsersPage() {
         const total = data.length
         const active = data.filter((u: UserType) => u.isActive).length
         const inactive = total - active
-        const admins = data.filter((u: UserType) => u.role === "admin").length
+        const admins = data.filter((u: UserType) =>
+          ["super_admin", "tenant_owner", "tenant_admin"].includes(u.role)
+        ).length
         setStats({ total, active, inactive, admins })
       }
     } catch (error) {
@@ -193,7 +210,7 @@ export default function UsersPage() {
         name: "",
         email: "",
         password: "",
-        role: "user",
+        role: "tenant_user",
         phone: "",
         slackUserId: "",
         isActive: true,
@@ -396,29 +413,24 @@ export default function UsersPage() {
             </div>
 
             {/* Role Filter */}
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className="px-4 py-2.5 rounded-xl text-sm outline-none cursor-pointer"
-              style={{ background: "#F5F5F7", border: "1px solid #EEEEEE", color: "#444444" }}
-            >
-              <option value="all">Tous les rôles</option>
-              <option value="admin">Administrateurs</option>
-              <option value="manager">Managers</option>
-              <option value="user">Utilisateurs</option>
-            </select>
+            <div className="w-44">
+              <StyledSelect
+                value={roleFilter}
+                onChange={setRoleFilter}
+                options={userRoleOptions}
+                placeholder="Tous les rôles"
+              />
+            </div>
 
             {/* Status Filter */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2.5 rounded-xl text-sm outline-none cursor-pointer"
-              style={{ background: "#F5F5F7", border: "1px solid #EEEEEE", color: "#444444" }}
-            >
-              <option value="all">Tous les statuts</option>
-              <option value="active">Actifs</option>
-              <option value="inactive">Inactifs</option>
-            </select>
+            <div className="w-36">
+              <StyledSelect
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={activeStatusOptions}
+                placeholder="Tous les statuts"
+              />
+            </div>
 
             {(search || roleFilter !== "all" || statusFilter !== "all") && (
               <button
@@ -487,7 +499,9 @@ export default function UsersPage() {
                         <div
                           className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-semibold text-sm"
                           style={{
-                            background: user.role === "admin" ? "#7C3AED" : user.role === "manager" ? "#2563EB" : "#6B7280"
+                            background: ["super_admin", "tenant_owner", "tenant_admin"].includes(user.role)
+                              ? "#7C3AED"
+                              : "#2563EB"
                           }}
                         >
                           {user.name.charAt(0).toUpperCase()}
@@ -638,16 +652,11 @@ export default function UsersPage() {
 
             <div className="space-y-2">
               <Label>Rôle</Label>
-              <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="user">Utilisateur</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="admin">Administrateur</SelectItem>
-                </SelectContent>
-              </Select>
+              <StyledSelect
+                value={form.role}
+                onChange={(v) => setForm({ ...form, role: v })}
+                options={userRoleFormOptions}
+              />
             </div>
 
             <div className="flex items-center gap-2">

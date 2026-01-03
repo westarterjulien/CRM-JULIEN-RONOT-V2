@@ -8,6 +8,13 @@ import {
   Save, Send, Loader2, Plus, Trash2, Search, X
 } from "lucide-react"
 import { AIContractEditor } from "@/components/contracts/ai-contract-editor"
+import { StyledSelect, SelectOption } from "@/components/ui/styled-select"
+
+const signerTypeOptions: SelectOption[] = [
+  { value: "signer", label: "Signataire", color: "#28B95F" },
+  { value: "validator", label: "Validateur", color: "#0064FA" },
+  { value: "viewer", label: "Observateur", color: "#666666" },
+]
 
 interface Client {
   id: string
@@ -451,16 +458,12 @@ export default function CreateAIContractPage() {
                   className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0064FA]/20"
                   style={{ background: "#FFFFFF", border: "1px solid #EEEEEE" }}
                 />
-                <select
+                <StyledSelect
                   value={newSigner.signerType}
-                  onChange={(e) => setNewSigner({ ...newSigner, signerType: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0064FA]/20"
-                  style={{ background: "#FFFFFF", border: "1px solid #EEEEEE" }}
-                >
-                  <option value="signer">Signataire</option>
-                  <option value="validator">Validateur</option>
-                  <option value="viewer">Observateur</option>
-                </select>
+                  onChange={(v) => setNewSigner({ ...newSigner, signerType: v })}
+                  options={signerTypeOptions}
+                  placeholder="Type de signataire"
+                />
                 <div className="flex gap-2 pt-1">
                   <button
                     onClick={() => setShowSignerForm(false)}

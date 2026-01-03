@@ -7,6 +7,15 @@ import {
   XCircle, AlertCircle, Send, Users
 } from "lucide-react"
 import { formatDate } from "@/lib/utils"
+import { StyledSelect, SelectOption } from "@/components/ui/styled-select"
+
+const contractFilterOptions: SelectOption[] = [
+  { value: "all", label: "Tous les contrats" },
+  { value: "sent", label: "En attente de signature", color: "#0064FA" },
+  { value: "completed", label: "Signés", color: "#28B95F" },
+  { value: "declined", label: "Refusés", color: "#F04B69" },
+  { value: "expired", label: "Expirés", color: "#999999" },
+]
 
 interface Contract {
   id: string
@@ -152,18 +161,14 @@ export default function ClientContractsPage() {
       >
         {/* Filter */}
         <div className="px-5 py-4 border-b" style={{ borderColor: "#EEEEEE" }}>
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="px-4 py-2.5 rounded-xl text-sm outline-none cursor-pointer"
-            style={{ background: "#F5F5F7", border: "1px solid #EEEEEE", color: "#444444" }}
-          >
-            <option value="all">Tous les contrats</option>
-            <option value="sent">En attente de signature</option>
-            <option value="completed">Signés</option>
-            <option value="declined">Refusés</option>
-            <option value="expired">Expirés</option>
-          </select>
+          <div className="w-56">
+            <StyledSelect
+              value={filter}
+              onChange={setFilter}
+              options={contractFilterOptions}
+              placeholder="Tous les contrats"
+            />
+          </div>
         </div>
 
         {loading ? (

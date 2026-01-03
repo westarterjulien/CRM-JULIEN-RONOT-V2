@@ -21,8 +21,23 @@ import {
   Copy,
   Building2,
   X,
-  ChevronDown,
 } from "lucide-react"
+import { StyledSelect, SelectOption } from "@/components/ui/styled-select"
+
+const DNS_TYPES = ["A", "AAAA", "CNAME", "MX", "TXT", "NS", "SRV", "CAA"]
+
+const dnsTypeOptions: SelectOption[] = DNS_TYPES.map((type) => ({
+  value: type,
+  label: type,
+}))
+
+const ttlOptions: SelectOption[] = [
+  { value: "60", label: "1 minute" },
+  { value: "300", label: "5 minutes" },
+  { value: "3600", label: "1 heure" },
+  { value: "86400", label: "1 jour" },
+  { value: "604800", label: "1 semaine" },
+]
 
 interface Domain {
   id: string
@@ -59,8 +74,6 @@ interface Nameserver {
 }
 
 type DnsProvider = "cloudflare" | "ovh" | "unknown"
-
-const DNS_TYPES = ["A", "AAAA", "CNAME", "MX", "TXT", "NS", "SRV", "CAA"]
 
 export default function DomainPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -739,19 +752,12 @@ export default function DomainPage({ params }: { params: Promise<{ id: string }>
               {!editRecord && (
                 <div>
                   <label className="text-sm font-medium mb-1.5 block" style={{ color: "#444444" }}>Type</label>
-                  <div className="relative">
-                    <select
-                      value={recordType}
-                      onChange={(e) => setRecordType(e.target.value)}
-                      className="w-full h-10 px-3 pr-10 rounded-xl text-sm appearance-none cursor-pointer outline-none"
-                      style={inputStyle}
-                    >
-                      {DNS_TYPES.map((type) => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "#999999" }} />
-                  </div>
+                  <StyledSelect
+                    value={recordType}
+                    onChange={setRecordType}
+                    options={dnsTypeOptions}
+                    placeholder="Type"
+                  />
                 </div>
               )}
               <div>
@@ -776,21 +782,12 @@ export default function DomainPage({ params }: { params: Promise<{ id: string }>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1.5 block" style={{ color: "#444444" }}>TTL</label>
-                <div className="relative">
-                  <select
-                    value={ttl}
-                    onChange={(e) => setTtl(e.target.value)}
-                    className="w-full h-10 px-3 pr-10 rounded-xl text-sm appearance-none cursor-pointer outline-none"
-                    style={inputStyle}
-                  >
-                    <option value="60">1 minute</option>
-                    <option value="300">5 minutes</option>
-                    <option value="3600">1 heure</option>
-                    <option value="86400">1 jour</option>
-                    <option value="604800">1 semaine</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "#999999" }} />
-                </div>
+                <StyledSelect
+                  value={ttl}
+                  onChange={setTtl}
+                  options={ttlOptions}
+                  placeholder="TTL"
+                />
               </div>
             </div>
             <div className="px-6 py-4 flex gap-3 justify-end" style={{ borderTop: "1px solid #EEEEEE" }}>

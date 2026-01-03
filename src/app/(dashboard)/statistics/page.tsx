@@ -13,6 +13,13 @@ import {
   PieChart,
   RefreshCw,
 } from "lucide-react"
+import { StyledSelect, SelectOption } from "@/components/ui/styled-select"
+
+const periodOptions: SelectOption[] = [
+  { value: "month", label: "Ce mois", color: "#0064FA" },
+  { value: "quarter", label: "Ce trimestre", color: "#7C3AED" },
+  { value: "year", label: "Cette année", color: "#28B95F" },
+]
 
 interface Statistics {
   revenue: {
@@ -143,15 +150,14 @@ export default function StatisticsPage() {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value as "month" | "quarter" | "year")}
-            className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="month">Ce mois</option>
-            <option value="quarter">Ce trimestre</option>
-            <option value="year">Cette année</option>
-          </select>
+          <div className="w-40">
+            <StyledSelect
+              value={period}
+              onChange={(v) => setPeriod(v as "month" | "quarter" | "year")}
+              options={periodOptions}
+              placeholder="Période"
+            />
+          </div>
           <button
             onClick={fetchStats}
             className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"

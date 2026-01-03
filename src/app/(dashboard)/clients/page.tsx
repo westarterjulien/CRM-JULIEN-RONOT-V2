@@ -5,7 +5,21 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { StyledSelect, SelectOption } from "@/components/ui/styled-select"
+
+const clientStatusOptions: SelectOption[] = [
+  { value: "all", label: "Tous les statuts" },
+  { value: "active", label: "Clients actifs", color: "#28B95F" },
+  { value: "prospect", label: "Prospects", color: "#DCB40A" },
+  { value: "inactive", label: "Inactifs", color: "#666666" },
+]
+
+const perPageOptions: SelectOption[] = [
+  { value: "10", label: "10 / page" },
+  { value: "15", label: "15 / page" },
+  { value: "25", label: "25 / page" },
+  { value: "50", label: "50 / page" },
+]
 import {
   Plus, Eye, Pencil, Trash2, Search, Users,
   UserCheck, Clock, ChevronLeft, ChevronRight, MoreHorizontal,
@@ -316,30 +330,24 @@ export default function ClientsPage() {
             </div>
 
             {/* Status Filter */}
-            <select
-              value={status}
-              onChange={(e) => { setStatus(e.target.value); setPage(1) }}
-              className="px-4 py-2.5 rounded-xl text-sm outline-none cursor-pointer"
-              style={{ background: "#F5F5F7", border: "1px solid #EEEEEE", color: "#444444" }}
-            >
-              <option value="all">Tous les statuts</option>
-              <option value="active">Clients actifs</option>
-              <option value="prospect">Prospects</option>
-              <option value="inactive">Inactifs</option>
-            </select>
+            <div className="w-40">
+              <StyledSelect
+                value={status}
+                onChange={(v) => { setStatus(v); setPage(1) }}
+                options={clientStatusOptions}
+                placeholder="Tous les statuts"
+              />
+            </div>
 
             {/* Per Page */}
-            <select
-              value={perPage}
-              onChange={(e) => { setPerPage(e.target.value); setPage(1) }}
-              className="px-4 py-2.5 rounded-xl text-sm outline-none cursor-pointer"
-              style={{ background: "#F5F5F7", border: "1px solid #EEEEEE", color: "#444444" }}
-            >
-              <option value="10">10 / page</option>
-              <option value="15">15 / page</option>
-              <option value="25">25 / page</option>
-              <option value="50">50 / page</option>
-            </select>
+            <div className="w-32">
+              <StyledSelect
+                value={perPage}
+                onChange={(v) => { setPerPage(v); setPage(1) }}
+                options={perPageOptions}
+                showCheckmark={false}
+              />
+            </div>
 
             {(search || status !== "all") && (
               <button

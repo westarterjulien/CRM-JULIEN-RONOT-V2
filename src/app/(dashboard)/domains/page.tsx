@@ -21,6 +21,7 @@ import {
   X,
   ChevronDown,
 } from "lucide-react"
+import { StyledSelect, SelectOption, domainStatusOptions } from "@/components/ui/styled-select"
 
 interface Domain {
   id: string
@@ -393,31 +394,29 @@ export default function DomainsPage() {
                 style={{ background: "#F5F5F7", border: "1px solid #EEEEEE", color: "#111111" }}
               />
             </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2.5 rounded-xl text-sm outline-none cursor-pointer"
-              style={{ background: "#F5F5F7", border: "1px solid #EEEEEE", color: "#444444" }}
-            >
-              <option value="all">Tous les statuts</option>
-              <option value="active">Actif</option>
-              <option value="expired">Expiré</option>
-              <option value="pending_transfer">Transfert</option>
-            </select>
-            <select
-              value={clientFilter}
-              onChange={(e) => setClientFilter(e.target.value)}
-              className="px-4 py-2.5 rounded-xl text-sm outline-none cursor-pointer"
-              style={{ background: "#F5F5F7", border: "1px solid #EEEEEE", color: "#444444" }}
-            >
-              <option value="all">Tous les clients</option>
-              <option value="unassigned">Non assigné</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.companyName}
-                </option>
-              ))}
-            </select>
+            <div className="w-40">
+              <StyledSelect
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={domainStatusOptions}
+                placeholder="Tous les statuts"
+              />
+            </div>
+            <div className="w-48">
+              <StyledSelect
+                value={clientFilter}
+                onChange={setClientFilter}
+                options={[
+                  { value: "all", label: "Tous les clients" },
+                  { value: "unassigned", label: "Non assigné", color: "#999999" },
+                  ...clients.map((client) => ({
+                    value: client.id,
+                    label: client.companyName,
+                  })),
+                ]}
+                placeholder="Tous les clients"
+              />
+            </div>
           </div>
         </div>
 
@@ -661,17 +660,18 @@ export default function DomainsPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: "#444444" }}>Client</label>
-                <select
+                <StyledSelect
                   value={editClientId}
-                  onChange={(e) => setEditClientId(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-                  style={{ background: "#F5F5F7", border: "1px solid #EEEEEE", color: "#444444" }}
-                >
-                  <option value="none">Aucun client</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>{client.companyName}</option>
-                  ))}
-                </select>
+                  onChange={setEditClientId}
+                  options={[
+                    { value: "none", label: "Aucun client", color: "#999999" },
+                    ...clients.map((client) => ({
+                      value: client.id,
+                      label: client.companyName,
+                    })),
+                  ]}
+                  placeholder="Sélectionner un client"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: "#444444" }}>Notes</label>

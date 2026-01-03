@@ -40,6 +40,38 @@ import {
 } from "lucide-react"
 import Image from "next/image"
 import { useTenant } from "@/contexts/tenant-context"
+import { StyledSelect, SelectOption } from "@/components/ui/styled-select"
+
+const monthlyGoalModeOptions: SelectOption[] = [
+  { value: "auto", label: "Automatique (basé sur l'historique)", color: "#28B95F" },
+  { value: "fixed", label: "Fixe (objectif manuel)", color: "#0064FA" },
+]
+
+const smtpEncryptionOptions: SelectOption[] = [
+  { value: "tls", label: "TLS (port 587)", color: "#28B95F" },
+  { value: "ssl", label: "SSL (port 465)", color: "#0064FA" },
+  { value: "none", label: "Aucun (port 25)", color: "#999999" },
+]
+
+const ovhEndpointOptions: SelectOption[] = [
+  { value: "ovh-eu", label: "OVH Europe (ovh-eu)" },
+  { value: "ovh-ca", label: "OVH Canada (ovh-ca)" },
+  { value: "ovh-us", label: "OVH US (ovh-us)" },
+  { value: "kimsufi-eu", label: "Kimsufi Europe" },
+  { value: "soyoustart-eu", label: "SoYouStart Europe" },
+]
+
+const openaiModelOptions: SelectOption[] = [
+  { value: "gpt-4o-mini", label: "GPT-4o Mini (rapide, économique)", color: "#28B95F" },
+  { value: "gpt-4o", label: "GPT-4o (meilleur, plus lent)", color: "#0064FA" },
+  { value: "gpt-4-turbo", label: "GPT-4 Turbo", color: "#7C3AED" },
+  { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo (legacy)", color: "#999999" },
+]
+
+const gocardlessEnvironmentOptions: SelectOption[] = [
+  { value: "sandbox", label: "Sandbox (Test)", color: "#F59E0B" },
+  { value: "production", label: "Production", color: "#28B95F" },
+]
 
 interface SettingsData {
   id: string
@@ -923,10 +955,12 @@ function SettingsContent() {
           <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-1.5">
               <label className="text-sm font-medium" style={{ color: "#444444" }}>Mode de calcul</label>
-              <select value={monthlyGoalMode} onChange={(e) => setMonthlyGoalMode(e.target.value as "auto" | "fixed")} className="w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2" style={inputStyle}>
-                <option value="auto">Automatique (basé sur l&apos;historique)</option>
-                <option value="fixed">Fixe (objectif manuel)</option>
-              </select>
+              <StyledSelect
+                value={monthlyGoalMode}
+                onChange={(v) => setMonthlyGoalMode(v as "auto" | "fixed")}
+                options={monthlyGoalModeOptions}
+                placeholder="Mode de calcul"
+              />
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium" style={{ color: "#444444" }}>Objectif CA mensuel (EUR)</label>
@@ -987,11 +1021,12 @@ function SettingsContent() {
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium" style={{ color: "#444444" }}>Chiffrement *</label>
-              <select value={smtpEncryption} onChange={(e) => setSmtpEncryption(e.target.value as "tls" | "ssl" | "none")} className="w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2" style={inputStyle}>
-                <option value="tls">TLS (port 587)</option>
-                <option value="ssl">SSL (port 465)</option>
-                <option value="none">Aucun (port 25)</option>
-              </select>
+              <StyledSelect
+                value={smtpEncryption}
+                onChange={(v) => setSmtpEncryption(v as "tls" | "ssl" | "none")}
+                options={smtpEncryptionOptions}
+                placeholder="Chiffrement"
+              />
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium" style={{ color: "#444444" }}>Adresse d&apos;envoi *</label>
@@ -1102,12 +1137,17 @@ function SettingsContent() {
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium" style={{ color: "#444444" }}>Format</label>
-                <select value={invoiceNumberFormat} onChange={(e) => setInvoiceNumberFormat(e.target.value)} className="w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2" style={inputStyle}>
-                  <option value="{PREFIX}-{YEAR}-{NUMBER}">{invoicePrefix}-2025-001</option>
-                  <option value="{PREFIX}{YEAR}{NUMBER}">{invoicePrefix}2025001</option>
-                  <option value="{PREFIX}-{NUMBER}">{invoicePrefix}-001</option>
-                  <option value="{YEAR}-{NUMBER}">2025-001</option>
-                </select>
+                <StyledSelect
+                  value={invoiceNumberFormat}
+                  onChange={setInvoiceNumberFormat}
+                  options={[
+                    { value: "{PREFIX}-{YEAR}-{NUMBER}", label: `${invoicePrefix}-2025-001` },
+                    { value: "{PREFIX}{YEAR}{NUMBER}", label: `${invoicePrefix}2025001` },
+                    { value: "{PREFIX}-{NUMBER}", label: `${invoicePrefix}-001` },
+                    { value: "{YEAR}-{NUMBER}", label: "2025-001" },
+                  ]}
+                  placeholder="Format"
+                />
               </div>
             </div>
             <p className="text-xs" style={{ color: "#999999" }}>Aperçu: {invoiceNumberFormat.replace("{PREFIX}", invoicePrefix).replace("{YEAR}", new Date().getFullYear().toString()).replace("{NUMBER}", nextInvoiceNumber.padStart(3, "0"))}</p>
@@ -1127,12 +1167,17 @@ function SettingsContent() {
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium" style={{ color: "#444444" }}>Format</label>
-                <select value={quoteNumberFormat} onChange={(e) => setQuoteNumberFormat(e.target.value)} className="w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2" style={inputStyle}>
-                  <option value="{PREFIX}-{YEAR}-{NUMBER}">{quotePrefix}-2025-001</option>
-                  <option value="{PREFIX}{YEAR}{NUMBER}">{quotePrefix}2025001</option>
-                  <option value="{PREFIX}-{NUMBER}">{quotePrefix}-001</option>
-                  <option value="{YEAR}-{NUMBER}">2025-001</option>
-                </select>
+                <StyledSelect
+                  value={quoteNumberFormat}
+                  onChange={setQuoteNumberFormat}
+                  options={[
+                    { value: "{PREFIX}-{YEAR}-{NUMBER}", label: `${quotePrefix}-2025-001` },
+                    { value: "{PREFIX}{YEAR}{NUMBER}", label: `${quotePrefix}2025001` },
+                    { value: "{PREFIX}-{NUMBER}", label: `${quotePrefix}-001` },
+                    { value: "{YEAR}-{NUMBER}", label: "2025-001" },
+                  ]}
+                  placeholder="Format"
+                />
               </div>
             </div>
             <p className="text-xs" style={{ color: "#999999" }}>Aperçu: {quoteNumberFormat.replace("{PREFIX}", quotePrefix).replace("{YEAR}", new Date().getFullYear().toString()).replace("{NUMBER}", nextQuoteNumber.padStart(3, "0"))}</p>
@@ -1221,13 +1266,12 @@ function SettingsContent() {
             <div className="grid gap-4">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium" style={{ color: "#444444" }}>Endpoint OVH</label>
-                <select value={ovhEndpoint} onChange={(e) => setOvhEndpoint(e.target.value)} className="w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2" style={inputStyle}>
-                  <option value="ovh-eu">OVH Europe (ovh-eu)</option>
-                  <option value="ovh-ca">OVH Canada (ovh-ca)</option>
-                  <option value="ovh-us">OVH US (ovh-us)</option>
-                  <option value="kimsufi-eu">Kimsufi Europe</option>
-                  <option value="soyoustart-eu">SoYouStart Europe</option>
-                </select>
+                <StyledSelect
+                  value={ovhEndpoint}
+                  onChange={setOvhEndpoint}
+                  options={ovhEndpointOptions}
+                  placeholder="Endpoint OVH"
+                />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium" style={{ color: "#444444" }}>Application Key *</label>
@@ -1554,15 +1598,12 @@ function SettingsContent() {
 
                     <div className="space-y-2">
                       <label className="text-sm font-medium" style={{ color: "#444444" }}>Modèle</label>
-                      <div className="relative">
-                        <select value={openaiModel} onChange={(e) => setOpenaiModel(e.target.value)} className="w-full px-4 py-2.5 pr-10 rounded-xl text-sm outline-none appearance-none focus:ring-2 focus:ring-[#28B95F]/20" style={inputStyle}>
-                          <option value="gpt-4o-mini">GPT-4o Mini (rapide, économique)</option>
-                          <option value="gpt-4o">GPT-4o (meilleur, plus lent)</option>
-                          <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                          <option value="gpt-3.5-turbo">GPT-3.5 Turbo (legacy)</option>
-                        </select>
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "#999999" }} />
-                      </div>
+                      <StyledSelect
+                        value={openaiModel}
+                        onChange={setOpenaiModel}
+                        options={openaiModelOptions}
+                        placeholder="Modèle"
+                      />
                     </div>
 
                     <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: "#F5F5F7" }}>
@@ -1981,10 +2022,12 @@ function SettingsContent() {
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium" style={{ color: "#444444" }}>Environnement</label>
-                      <select value={gocardlessEnvironment} onChange={(e) => setGocardlessEnvironment(e.target.value as "sandbox" | "production")} className="w-full px-4 py-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#14B4E6]/20" style={{ background: "#F5F5F7", border: "1px solid #EEEEEE", color: "#111111" }}>
-                        <option value="sandbox">Sandbox (Test)</option>
-                        <option value="production">Production</option>
-                      </select>
+                      <StyledSelect
+                        value={gocardlessEnvironment}
+                        onChange={(v) => setGocardlessEnvironment(v as "sandbox" | "production")}
+                        options={gocardlessEnvironmentOptions}
+                        placeholder="Environnement"
+                      />
                     </div>
 
                     <div className="space-y-2">

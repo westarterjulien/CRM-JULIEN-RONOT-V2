@@ -10,7 +10,6 @@ import {
   Calendar,
   Euro,
   FileText,
-  ChevronDown,
   RefreshCw,
   CheckSquare,
   Square,
@@ -19,6 +18,13 @@ import {
   CreditCard,
 } from "lucide-react"
 import Link from "next/link"
+import { StyledSelect, SelectOption } from "@/components/ui/styled-select"
+
+const prelevementStatusOptions: SelectOption[] = [
+  { value: "pending", label: "En attente", color: "#F59E0B" },
+  { value: "exported", label: "Exportés", color: "#3B82F6" },
+  { value: "executed", label: "Exécutés", color: "#10B981" },
+]
 
 interface Invoice {
   id: string
@@ -228,19 +234,12 @@ export default function PrelevementsPage() {
           <label className="text-xs font-medium mb-2 block" style={{ color: "#666666" }}>
             Statut
           </label>
-          <div className="relative">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl text-sm appearance-none outline-none cursor-pointer"
-              style={{ background: "#F5F5F7", border: "1px solid #EEEEEE", color: "#111111" }}
-            >
-              <option value="pending">En attente</option>
-              <option value="exported">Exportés</option>
-              <option value="executed">Exécutés</option>
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "#999999" }} />
-          </div>
+          <StyledSelect
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={prelevementStatusOptions}
+            placeholder="Statut"
+          />
         </div>
 
         {/* Total invoices */}

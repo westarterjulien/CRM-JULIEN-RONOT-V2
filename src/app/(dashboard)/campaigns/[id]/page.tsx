@@ -21,6 +21,13 @@ import {
   MousePointer,
   AlertCircle,
 } from "lucide-react"
+import { StyledSelect, SelectOption } from "@/components/ui/styled-select"
+
+const recipientTypeOptions: SelectOption[] = [
+  { value: "all_clients", label: "Tous les clients", color: "#3B82F6" },
+  { value: "active_clients", label: "Clients actifs uniquement", color: "#10B981" },
+  { value: "prospects", label: "Prospects uniquement", color: "#F59E0B" },
+]
 
 // Import Unlayer dynamically (client-side only)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -601,16 +608,12 @@ export default function CampaignEditorPage() {
                 <label className="block text-sm font-medium mb-2" style={{ color: "#444444" }}>
                   Type de destinataires
                 </label>
-                <select
+                <StyledSelect
                   value={recipientType}
-                  onChange={(e) => setRecipientType(e.target.value)}
-                  className="w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2"
-                  style={{ borderColor: "#E5E5E5", background: "#FAFAFA", color: "#111111" }}
-                >
-                  <option value="all_clients">Tous les clients</option>
-                  <option value="active_clients">Clients actifs uniquement</option>
-                  <option value="prospects">Prospects uniquement</option>
-                </select>
+                  onChange={setRecipientType}
+                  options={recipientTypeOptions}
+                  placeholder="Type de destinataires"
+                />
               </div>
             </div>
 

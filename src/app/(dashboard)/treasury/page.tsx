@@ -29,6 +29,19 @@ import {
   X,
   Clock,
 } from "lucide-react"
+import { StyledSelect, SelectOption } from "@/components/ui/styled-select"
+
+const transactionTypeOptions: SelectOption[] = [
+  { value: "", label: "Tous les types" },
+  { value: "credit", label: "Entrées", color: "#28B95F" },
+  { value: "debit", label: "Sorties", color: "#F04B69" },
+]
+
+const reconciledOptions: SelectOption[] = [
+  { value: "", label: "Rapprochement" },
+  { value: "true", label: "Rapprochées", color: "#28B95F" },
+  { value: "false", label: "Non rapprochées", color: "#999999" },
+]
 
 interface BankAccount {
   id: string
@@ -1036,39 +1049,30 @@ export default function TreasuryPage() {
                   }}
                 />
               </div>
-              <select
+              <StyledSelect
                 value={accountFilter}
-                onChange={(e) => setAccountFilter(e.target.value)}
-                className="px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2"
-                style={{ background: "#F5F5F7", border: "1px solid #EEEEEE", color: "#444444" }}
-              >
-                <option value="">Tous les comptes</option>
-                {accounts.map((acc) => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.accountName}
-                  </option>
-                ))}
-              </select>
-              <select
+                onChange={setAccountFilter}
+                options={[
+                  { value: "", label: "Tous les comptes" },
+                  ...accounts.map((acc) => ({
+                    value: acc.id,
+                    label: acc.accountName,
+                  })),
+                ]}
+                placeholder="Tous les comptes"
+              />
+              <StyledSelect
                 value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2"
-                style={{ background: "#F5F5F7", border: "1px solid #EEEEEE", color: "#444444" }}
-              >
-                <option value="">Tous les types</option>
-                <option value="credit">Entrées</option>
-                <option value="debit">Sorties</option>
-              </select>
-              <select
+                onChange={setTypeFilter}
+                options={transactionTypeOptions}
+                placeholder="Tous les types"
+              />
+              <StyledSelect
                 value={reconciledFilter}
-                onChange={(e) => setReconciledFilter(e.target.value)}
-                className="px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2"
-                style={{ background: "#F5F5F7", border: "1px solid #EEEEEE", color: "#444444" }}
-              >
-                <option value="">Rapprochement</option>
-                <option value="true">Rapprochées</option>
-                <option value="false">Non rapprochées</option>
-              </select>
+                onChange={setReconciledFilter}
+                options={reconciledOptions}
+                placeholder="Rapprochement"
+              />
               <div className="flex gap-2">
                 <input
                   type="date"

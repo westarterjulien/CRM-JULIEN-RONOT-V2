@@ -23,6 +23,14 @@ import {
   FileText,
   Loader2,
 } from "lucide-react"
+import { StyledSelect, SelectOption, quoteStatusOptions } from "@/components/ui/styled-select"
+
+const quotePerPageOptions: SelectOption[] = [
+  { value: "10", label: "10" },
+  { value: "15", label: "15" },
+  { value: "25", label: "25" },
+  { value: "50", label: "50" },
+]
 
 interface Quote {
   id: string
@@ -497,40 +505,31 @@ export default function QuotesPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <select
-              value={status || "all"}
-              onChange={(e) => {
-                setStatus(e.target.value === "all" ? "" : e.target.value)
-                setPage(1)
-              }}
-              className="px-4 py-2.5 rounded-xl text-sm appearance-none cursor-pointer"
-              style={{ background: "#FFFFFF", border: "1px solid #EEEEEE", color: "#111111" }}
-            >
-              <option value="all">Tous les statuts</option>
-              <option value="draft">Brouillon</option>
-              <option value="sent">Envoyé</option>
-              <option value="accepted">Accepté</option>
-              <option value="rejected">Refusé</option>
-              <option value="expired">Expiré</option>
-              <option value="converted">Converti</option>
-            </select>
+            <div className="w-44">
+              <StyledSelect
+                value={status || "all"}
+                onChange={(v) => {
+                  setStatus(v === "all" ? "" : v)
+                  setPage(1)
+                }}
+                options={quoteStatusOptions}
+                placeholder="Tous les statuts"
+              />
+            </div>
             <span className="text-sm" style={{ color: "#666666" }}>
               Afficher
             </span>
-            <select
-              value={perPage.toString()}
-              onChange={(e) => {
-                setPerPage(parseInt(e.target.value))
-                setPage(1)
-              }}
-              className="px-3 py-2.5 rounded-xl text-sm appearance-none cursor-pointer"
-              style={{ background: "#FFFFFF", border: "1px solid #EEEEEE", color: "#111111" }}
-            >
-              <option value="10">10</option>
-              <option value="15">15</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
-            </select>
+            <div className="w-20">
+              <StyledSelect
+                value={perPage.toString()}
+                onChange={(v) => {
+                  setPerPage(parseInt(v))
+                  setPage(1)
+                }}
+                options={quotePerPageOptions}
+                showCheckmark={false}
+              />
+            </div>
           </div>
         </div>
       </div>

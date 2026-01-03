@@ -28,6 +28,15 @@ import {
   X,
   Loader2,
 } from "lucide-react"
+import { StyledSelect, SelectOption } from "@/components/ui/styled-select"
+
+const paymentMethodOptions: SelectOption[] = [
+  { value: "virement", label: "Virement bancaire", color: "#28B95F" },
+  { value: "prelevement", label: "Prélèvement SEPA", color: "#0064FA" },
+  { value: "carte", label: "Carte bancaire", color: "#7C3AED" },
+  { value: "cheque", label: "Chèque", color: "#F0783C" },
+  { value: "especes", label: "Espèces", color: "#DCB40A" },
+]
 
 interface InvoiceItem {
   id: string
@@ -1390,18 +1399,12 @@ export default function InvoiceDetailPage({
                   <label className="text-sm font-medium" style={{ color: "#444444" }}>
                     Méthode de paiement
                   </label>
-                  <select
+                  <StyledSelect
                     value={markPaidMethod}
-                    onChange={(e) => setMarkPaidMethod(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-                    style={inputStyle}
-                  >
-                    <option value="virement">Virement bancaire</option>
-                    <option value="prelevement">Prélèvement SEPA</option>
-                    <option value="carte">Carte bancaire</option>
-                    <option value="cheque">Chèque</option>
-                    <option value="especes">Espèces</option>
-                  </select>
+                    onChange={setMarkPaidMethod}
+                    options={paymentMethodOptions}
+                    placeholder="Méthode de paiement"
+                  />
                 </div>
               </div>
 

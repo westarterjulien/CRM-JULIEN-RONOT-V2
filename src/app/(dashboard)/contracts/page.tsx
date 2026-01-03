@@ -27,6 +27,25 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { formatDate } from "@/lib/utils"
+import { StyledSelect, SelectOption, contractStatusOptions } from "@/components/ui/styled-select"
+
+const contractPerPageOptions: SelectOption[] = [
+  { value: "10", label: "10 / page" },
+  { value: "15", label: "15 / page" },
+  { value: "25", label: "25 / page" },
+  { value: "50", label: "50 / page" },
+]
+
+const contractStatusFilterOptions: SelectOption[] = [
+  { value: "all", label: "Tous les statuts" },
+  { value: "draft", label: "Brouillons", color: "#666666" },
+  { value: "sent", label: "Envoyés", color: "#0064FA" },
+  { value: "viewed", label: "Consultés", color: "#DCB40A" },
+  { value: "partially_signed", label: "En cours", color: "#F0783C" },
+  { value: "completed", label: "Signés", color: "#28B95F" },
+  { value: "declined", label: "Refusés", color: "#F04B69" },
+  { value: "expired", label: "Expirés", color: "#999999" },
+]
 
 interface Contract {
   id: string
@@ -299,33 +318,23 @@ export default function ContractsPage() {
               />
             </div>
 
-            <select
-              value={status}
-              onChange={(e) => { setStatus(e.target.value); setPage(1) }}
-              className="px-4 py-2.5 rounded-xl text-sm outline-none cursor-pointer"
-              style={{ background: "#F5F5F7", border: "1px solid #EEEEEE", color: "#444444" }}
-            >
-              <option value="all">Tous les statuts</option>
-              <option value="draft">Brouillons</option>
-              <option value="sent">Envoyés</option>
-              <option value="viewed">Consultés</option>
-              <option value="partially_signed">En cours</option>
-              <option value="completed">Signés</option>
-              <option value="declined">Refusés</option>
-              <option value="expired">Expirés</option>
-            </select>
+            <div className="w-44">
+              <StyledSelect
+                value={status}
+                onChange={(v) => { setStatus(v); setPage(1) }}
+                options={contractStatusFilterOptions}
+                placeholder="Tous les statuts"
+              />
+            </div>
 
-            <select
-              value={perPage}
-              onChange={(e) => { setPerPage(e.target.value); setPage(1) }}
-              className="px-4 py-2.5 rounded-xl text-sm outline-none cursor-pointer"
-              style={{ background: "#F5F5F7", border: "1px solid #EEEEEE", color: "#444444" }}
-            >
-              <option value="10">10 / page</option>
-              <option value="15">15 / page</option>
-              <option value="25">25 / page</option>
-              <option value="50">50 / page</option>
-            </select>
+            <div className="w-32">
+              <StyledSelect
+                value={perPage}
+                onChange={(v) => { setPerPage(v); setPage(1) }}
+                options={contractPerPageOptions}
+                showCheckmark={false}
+              />
+            </div>
 
             {(search || status !== "all") && (
               <button

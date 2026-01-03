@@ -7,8 +7,14 @@ export async function GET(request: NextRequest) {
   const search = searchParams.get("search") || ""
 
   try {
-    const where: Record<string, unknown> = {
+    const role = searchParams.get("role") || ""
+    const status = searchParams.get("status") || ""
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = {
       tenant_id: BigInt(1),
+      // Exclude client portal users - only show CRM users
+      role: { notIn: ["client"] },
     }
 
     if (search) {
@@ -16,6 +22,21 @@ export async function GET(request: NextRequest) {
         { name: { contains: search } },
         { email: { contains: search } },
       ]
+    }
+
+    if (role && role !== "all") {
+      // Special case: "admin" filter shows all admin roles
+      if (role === "admin") {
+        where.role = { in: ["super_admin", "tenant_owner", "tenant_admin"] }
+      } else {
+        where.role = role
+      }
+    }
+
+    if (status === "active") {
+      where.isActive = true
+    } else if (status === "inactive") {
+      where.isActive = false
     }
 
     const users = await prisma.user.findMany({

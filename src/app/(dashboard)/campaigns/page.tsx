@@ -20,6 +20,16 @@ import {
   Pencil,
   Loader2,
 } from "lucide-react"
+import { StyledSelect, SelectOption } from "@/components/ui/styled-select"
+
+const campaignStatusOptions: SelectOption[] = [
+  { value: "all", label: "Tous" },
+  { value: "draft", label: "Brouillon", color: "#666666" },
+  { value: "scheduled", label: "Planifiée", color: "#F59E0B" },
+  { value: "sending", label: "En cours", color: "#3B82F6" },
+  { value: "sent", label: "Envoyée", color: "#10B981" },
+  { value: "paused", label: "En pause", color: "#EF4444" },
+]
 
 interface Campaign {
   id: string
@@ -298,23 +308,12 @@ export default function CampaignsPage() {
             <label className="text-sm font-medium mb-2 block" style={{ color: "#444444" }}>
               Statut
             </label>
-            <select
+            <StyledSelect
               value={statusFilter || "all"}
-              onChange={(e) => setStatusFilter(e.target.value === "all" ? "" : e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl text-sm appearance-none cursor-pointer"
-              style={{
-                background: "#FFFFFF",
-                border: "1px solid #EEEEEE",
-                color: "#111111",
-              }}
-            >
-              <option value="all">Tous</option>
-              <option value="draft">Brouillon</option>
-              <option value="scheduled">Planifiée</option>
-              <option value="sending">En cours</option>
-              <option value="sent">Envoyée</option>
-              <option value="paused">En pause</option>
-            </select>
+              onChange={(v) => setStatusFilter(v === "all" ? "" : v)}
+              options={campaignStatusOptions}
+              placeholder="Tous"
+            />
           </div>
 
           <div className="flex items-end">

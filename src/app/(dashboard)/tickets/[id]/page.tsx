@@ -28,7 +28,19 @@ import {
   Loader2,
   ChevronDown,
   User,
+  Circle,
+  ArrowUp,
+  ArrowDown,
+  ArrowRight,
+  UserCircle,
+  Check,
 } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 interface TicketAttachment {
   id: string
@@ -96,6 +108,39 @@ interface Client {
   email: string | null
 }
 
+// Status configuration with colors
+const statusConfig = {
+  new: { label: "Nouveau", color: "#3B82F6" },
+  open: { label: "Ouvert", color: "#F59E0B" },
+  pending: { label: "En attente", color: "#8B5CF6" },
+  resolved: { label: "Résolu", color: "#10B981" },
+  closed: { label: "Fermé", color: "#6B7280" },
+}
+
+// Priority configuration with colors and icons
+const priorityConfig = {
+  low: {
+    label: "Basse",
+    color: "#6B7280",
+    icon: <ArrowDown className="w-4 h-4" style={{ color: "#6B7280" }} />,
+  },
+  normal: {
+    label: "Normale",
+    color: "#3B82F6",
+    icon: <ArrowRight className="w-4 h-4" style={{ color: "#3B82F6" }} />,
+  },
+  high: {
+    label: "Haute",
+    color: "#F59E0B",
+    icon: <ArrowUp className="w-4 h-4" style={{ color: "#F59E0B" }} />,
+  },
+  urgent: {
+    label: "Urgente",
+    color: "#EF4444",
+    icon: <Flame className="w-4 h-4" style={{ color: "#EF4444" }} />,
+  },
+}
+
 export default function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
@@ -110,6 +155,9 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
   // Clients list
   const [clients, setClients] = useState<Client[]>([])
   const [clientDialogOpen, setClientDialogOpen] = useState(false)
+
+  // Team users for assignment
+  const [teamUsers, setTeamUsers] = useState<{ id: string; name: string }[]>([])
 
   // Reply form
   const [replyContent, setReplyContent] = useState("")
@@ -161,10 +209,23 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
     }
   }, [])
 
+  const fetchTeamUsers = useCallback(async () => {
+    try {
+      const res = await fetch("/api/users")
+      if (res.ok) {
+        const data = await res.json()
+        setTeamUsers(data)
+      }
+    } catch (error) {
+      console.error("Error fetching team users:", error)
+    }
+  }, [])
+
   useEffect(() => {
     fetchTicket()
     fetchClients()
-  }, [fetchTicket, fetchClients])
+    fetchTeamUsers()
+  }, [fetchTicket, fetchClients, fetchTeamUsers])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -737,57 +798,142 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
               {/* Status */}
               <div>
                 <label className="text-xs font-medium mb-1.5 block" style={{ color: "#666666" }}>Statut</label>
-                <div className="relative">
-                  <select
-                    value={ticket.status}
-                    onChange={(e) => handleAction("changeStatus", { status: e.target.value })}
-                    className="w-full h-10 px-3 pr-10 rounded-xl text-sm appearance-none cursor-pointer outline-none transition-all focus:border-[#0064FA]"
-                    style={inputStyle}
-                  >
-                    <option value="new">Nouveau</option>
-                    <option value="open">Ouvert</option>
-                    <option value="pending">En attente</option>
-                    <option value="resolved">Résolu</option>
-                    <option value="closed">Fermé</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "#999999" }} />
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="w-full h-10 px-3 rounded-xl text-sm flex items-center justify-between cursor-pointer outline-none transition-all hover:border-[#0064FA]"
+                      style={inputStyle}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-2 h-2 rounded-full"
+                          style={{ background: statusConfig[ticket.status as keyof typeof statusConfig]?.color || "#999" }}
+                        />
+                        <span style={{ color: "#111111" }}>
+                          {statusConfig[ticket.status as keyof typeof statusConfig]?.label || ticket.status}
+                        </span>
+                      </div>
+                      <ChevronDown className="h-4 w-4" style={{ color: "#999999" }} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-[200px]">
+                    {Object.entries(statusConfig).map(([key, config]) => (
+                      <DropdownMenuItem
+                        key={key}
+                        onClick={() => handleAction("changeStatus", { status: key })}
+                        className="flex items-center justify-between cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-2 h-2 rounded-full"
+                            style={{ background: config.color }}
+                          />
+                          <span>{config.label}</span>
+                        </div>
+                        {ticket.status === key && <Check className="h-4 w-4 text-blue-500" />}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               {/* Priority */}
               <div>
                 <label className="text-xs font-medium mb-1.5 block" style={{ color: "#666666" }}>Priorité</label>
-                <div className="relative">
-                  <select
-                    value={ticket.priority}
-                    onChange={(e) => handleAction("changePriority", { priority: e.target.value })}
-                    className="w-full h-10 px-3 pr-10 rounded-xl text-sm appearance-none cursor-pointer outline-none transition-all focus:border-[#0064FA]"
-                    style={inputStyle}
-                  >
-                    <option value="low">Basse</option>
-                    <option value="normal">Normale</option>
-                    <option value="high">Haute</option>
-                    <option value="urgent">Urgente</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "#999999" }} />
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="w-full h-10 px-3 rounded-xl text-sm flex items-center justify-between cursor-pointer outline-none transition-all hover:border-[#0064FA]"
+                      style={inputStyle}
+                    >
+                      <div className="flex items-center gap-2">
+                        {priorityConfig[ticket.priority as keyof typeof priorityConfig]?.icon}
+                        <span style={{ color: priorityConfig[ticket.priority as keyof typeof priorityConfig]?.color || "#111" }}>
+                          {priorityConfig[ticket.priority as keyof typeof priorityConfig]?.label || ticket.priority}
+                        </span>
+                      </div>
+                      <ChevronDown className="h-4 w-4" style={{ color: "#999999" }} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-[200px]">
+                    {Object.entries(priorityConfig).map(([key, config]) => (
+                      <DropdownMenuItem
+                        key={key}
+                        onClick={() => handleAction("changePriority", { priority: key })}
+                        className="flex items-center justify-between cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          {config.icon}
+                          <span style={{ color: config.color }}>{config.label}</span>
+                        </div>
+                        {ticket.priority === key && <Check className="h-4 w-4 text-blue-500" />}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               {/* Assigned */}
               <div>
                 <label className="text-xs font-medium mb-1.5 block" style={{ color: "#666666" }}>Assigné à</label>
-                <div className="relative">
-                  <select
-                    value={ticket.assignee?.id || "none"}
-                    onChange={(e) => handleAction("assign", { assignedTo: e.target.value === "none" ? null : e.target.value })}
-                    className="w-full h-10 px-3 pr-10 rounded-xl text-sm appearance-none cursor-pointer outline-none transition-all focus:border-[#0064FA]"
-                    style={inputStyle}
-                  >
-                    <option value="none">Non assigné</option>
-                    <option value="1">Admin</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "#999999" }} />
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="w-full h-10 px-3 rounded-xl text-sm flex items-center justify-between cursor-pointer outline-none transition-all hover:border-[#0064FA]"
+                      style={inputStyle}
+                    >
+                      <div className="flex items-center gap-2">
+                        {ticket.assignee ? (
+                          <>
+                            <div
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-semibold"
+                              style={{ background: "#3B82F6" }}
+                            >
+                              {ticket.assignee.name.charAt(0).toUpperCase()}
+                            </div>
+                            <span style={{ color: "#111111" }}>{ticket.assignee.name}</span>
+                          </>
+                        ) : (
+                          <>
+                            <UserCircle className="w-5 h-5" style={{ color: "#999999" }} />
+                            <span style={{ color: "#999999" }}>Non assigné</span>
+                          </>
+                        )}
+                      </div>
+                      <ChevronDown className="h-4 w-4" style={{ color: "#999999" }} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-[220px]">
+                    <DropdownMenuItem
+                      onClick={() => handleAction("assign", { assignedTo: null })}
+                      className="flex items-center justify-between cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <UserCircle className="w-5 h-5" style={{ color: "#999999" }} />
+                        <span style={{ color: "#666666" }}>Non assigné</span>
+                      </div>
+                      {!ticket.assignee && <Check className="h-4 w-4 text-blue-500" />}
+                    </DropdownMenuItem>
+                    {teamUsers.map((user) => (
+                      <DropdownMenuItem
+                        key={user.id}
+                        onClick={() => handleAction("assign", { assignedTo: user.id })}
+                        className="flex items-center justify-between cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-semibold"
+                            style={{ background: "#3B82F6" }}
+                          >
+                            {user.name.charAt(0).toUpperCase()}
+                          </div>
+                          <span>{user.name}</span>
+                        </div>
+                        {ticket.assignee?.id === user.id && <Check className="h-4 w-4 text-blue-500" />}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               {/* Tags */}

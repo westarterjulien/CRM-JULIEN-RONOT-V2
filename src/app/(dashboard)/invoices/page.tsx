@@ -32,6 +32,27 @@ import {
   DollarSign,
   Loader2,
 } from "lucide-react"
+import { StyledSelect, SelectOption, invoiceStatusOptions } from "@/components/ui/styled-select"
+
+const invoicePerPageOptions: SelectOption[] = [
+  { value: "10", label: "10" },
+  { value: "15", label: "15" },
+  { value: "25", label: "25" },
+  { value: "50", label: "50" },
+  { value: "100", label: "100" },
+]
+
+const paymentMethodOptions: SelectOption[] = [
+  { value: "", label: "Sélectionner..." },
+  { value: "virement", label: "Virement bancaire", color: "#28B95F" },
+  { value: "prelevement_sepa", label: "Prélèvement SEPA", color: "#0064FA" },
+  { value: "cheque", label: "Chèque", color: "#F0783C" },
+  { value: "especes", label: "Espèces", color: "#DCB40A" },
+  { value: "carte", label: "Carte bancaire", color: "#5F00BA" },
+  { value: "paypal", label: "PayPal", color: "#0070BA" },
+  { value: "stripe", label: "Stripe", color: "#635BFF" },
+  { value: "autre", label: "Autre", color: "#666666" },
+]
 
 interface Invoice {
   id: string
@@ -745,27 +766,15 @@ export default function InvoicesPage() {
             <label className="text-sm font-medium mb-2 block" style={{ color: "#444444" }}>
               Statut
             </label>
-            <select
+            <StyledSelect
               value={status || "all"}
-              onChange={(e) => {
-                setStatus(e.target.value === "all" ? "" : e.target.value)
+              onChange={(v) => {
+                setStatus(v === "all" ? "" : v)
                 setPage(1)
               }}
-              className="w-full px-4 py-2.5 rounded-xl text-sm appearance-none cursor-pointer"
-              style={{
-                background: "#FFFFFF",
-                border: "1px solid #EEEEEE",
-                color: "#111111",
-              }}
-            >
-              <option value="all">Tous</option>
-              <option value="draft">Brouillon</option>
-              <option value="sent">Envoyée</option>
-              <option value="pending">En attente</option>
-              <option value="overdue">En retard</option>
-              <option value="paid">Payée</option>
-              <option value="cancelled">Annulée</option>
-            </select>
+              options={invoiceStatusOptions}
+              placeholder="Tous"
+            />
           </div>
 
           {/* Date From */}
@@ -1246,21 +1255,17 @@ export default function InvoicesPage() {
                 Suivant
                 <ChevronRight className="h-4 w-4" />
               </button>
-              <select
-                value={perPage.toString()}
-                onChange={(e) => {
-                  setPerPage(parseInt(e.target.value))
-                  setPage(1)
-                }}
-                className="ml-4 px-3 py-1.5 rounded-lg text-sm appearance-none cursor-pointer"
-                style={{ background: "#FFFFFF", border: "1px solid #EEEEEE", color: "#444444" }}
-              >
-                <option value="10">10</option>
-                <option value="15">15</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-              </select>
+              <div className="ml-4 w-20">
+                <StyledSelect
+                  value={perPage.toString()}
+                  onChange={(v) => {
+                    setPerPage(parseInt(v))
+                    setPage(1)
+                  }}
+                  options={invoicePerPageOptions}
+                  showCheckmark={false}
+                />
+              </div>
             </div>
           </div>
         )}
@@ -1566,22 +1571,12 @@ export default function InvoicesPage() {
                 <label className="text-sm font-medium mb-2 block" style={{ color: "#444444" }}>
                   Mode de paiement
                 </label>
-                <select
+                <StyledSelect
                   value={paymentMethodModal}
-                  onChange={(e) => setPaymentMethodModal(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm appearance-none cursor-pointer"
-                  style={{ background: "#FFFFFF", border: "1px solid #EEEEEE", color: "#111111" }}
-                >
-                  <option value="">Sélectionner...</option>
-                  <option value="virement">Virement bancaire</option>
-                  <option value="prelevement_sepa">Prélèvement SEPA</option>
-                  <option value="cheque">Chèque</option>
-                  <option value="especes">Espèces</option>
-                  <option value="carte">Carte bancaire</option>
-                  <option value="paypal">PayPal</option>
-                  <option value="stripe">Stripe</option>
-                  <option value="autre">Autre</option>
-                </select>
+                  onChange={setPaymentMethodModal}
+                  options={paymentMethodOptions}
+                  placeholder="Sélectionner..."
+                />
               </div>
 
               {/* Bank Transaction Selection */}

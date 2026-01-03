@@ -21,6 +21,16 @@ import {
   AlertTriangle,
 } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
+import { StyledSelect, SelectOption } from "@/components/ui/styled-select"
+
+const unitOptions: SelectOption[] = [
+  { value: "unité", label: "Unité" },
+  { value: "heure", label: "Heure" },
+  { value: "jour", label: "Jour" },
+  { value: "mois", label: "Mois" },
+  { value: "an", label: "An" },
+  { value: "forfait", label: "Forfait" },
+]
 
 interface Service {
   id: string
@@ -732,26 +742,24 @@ export default function ServicesPage() {
               </div>
             </form>
             <div className="flex gap-2">
-              <select
-                value={selectedCategory}
-                onChange={(e) => {
-                  setSelectedCategory(e.target.value)
-                  setPagination((prev) => ({ ...prev, page: 1 }))
-                }}
-                className="flex-1 lg:flex-none px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2"
-                style={{
-                  background: "#FFFFFF",
-                  border: "1px solid #EEEEEE",
-                  color: "#444444",
-                }}
-              >
-                <option value="">Toutes catégories</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
+              <div className="w-48">
+                <StyledSelect
+                  value={selectedCategory}
+                  onChange={(v) => {
+                    setSelectedCategory(v)
+                    setPagination((prev) => ({ ...prev, page: 1 }))
+                  }}
+                  options={[
+                    { value: "", label: "Toutes catégories" },
+                    ...categories.map((cat) => ({
+                      value: cat.id,
+                      label: cat.name,
+                      color: cat.color,
+                    })),
+                  ]}
+                  placeholder="Toutes catégories"
+                />
+              </div>
               <button
                 onClick={() => setShowInactive(!showInactive)}
                 className="px-4 py-3 rounded-xl transition-all flex items-center gap-2 text-sm font-medium"
@@ -1486,25 +1494,14 @@ export default function ServicesPage() {
                     >
                       Unité
                     </label>
-                    <select
+                    <StyledSelect
                       value={serviceForm.unit}
-                      onChange={(e) =>
-                        setServiceForm({ ...serviceForm, unit: e.target.value })
+                      onChange={(v) =>
+                        setServiceForm({ ...serviceForm, unit: v })
                       }
-                      className="w-full px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2"
-                      style={{
-                        background: "#FFFFFF",
-                        border: "1px solid #EEEEEE",
-                        color: "#444444",
-                      }}
-                    >
-                      <option value="unité">Unité</option>
-                      <option value="heure">Heure</option>
-                      <option value="jour">Jour</option>
-                      <option value="mois">Mois</option>
-                      <option value="an">An</option>
-                      <option value="forfait">Forfait</option>
-                    </select>
+                      options={unitOptions}
+                      placeholder="Unité"
+                    />
                   </div>
                   <div>
                     <label
@@ -1513,25 +1510,21 @@ export default function ServicesPage() {
                     >
                       Catégorie
                     </label>
-                    <select
+                    <StyledSelect
                       value={serviceForm.categoryId}
-                      onChange={(e) =>
-                        setServiceForm({ ...serviceForm, categoryId: e.target.value })
+                      onChange={(v) =>
+                        setServiceForm({ ...serviceForm, categoryId: v })
                       }
-                      className="w-full px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2"
-                      style={{
-                        background: "#FFFFFF",
-                        border: "1px solid #EEEEEE",
-                        color: "#444444",
-                      }}
-                    >
-                      <option value="">Sans catégorie</option>
-                      {categories.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: "", label: "Sans catégorie" },
+                        ...categories.map((cat) => ({
+                          value: cat.id,
+                          label: cat.name,
+                          color: cat.color,
+                        })),
+                      ]}
+                      placeholder="Sans catégorie"
+                    />
                   </div>
                 </div>
 
