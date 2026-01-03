@@ -19,6 +19,7 @@ export async function GET(
     const { id } = await params
     const searchParams = request.nextUrl.searchParams
     const type = searchParams.get("type") || "signed" // signed, original, audit
+    const inline = searchParams.get("inline") === "true" // For iframe display
 
     const contract = await prisma.contract.findUnique({
       where: { id: BigInt(id) },
@@ -142,7 +143,7 @@ export async function GET(
     return new NextResponse(uint8Array, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${filename}"`,
         "Content-Length": buffer.length.toString(),
       },
     })

@@ -334,7 +334,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
             </div>
           </div>
           <iframe
-            src={`/api/contracts/${id}/download?type=signed`}
+            src={`/api/contracts/${id}/download?type=signed&inline=true`}
             className="w-full"
             style={{ height: "600px", border: "none" }}
             title="Document signé"
