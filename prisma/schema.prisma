@@ -486,6 +486,8 @@ model TicketMessage {
   slackTs            String?              @map("slack_ts") @db.VarChar(255)
   sent_at            DateTime?            @db.Timestamp(0)
   is_read            Boolean              @default(false)
+  emailSent          Boolean              @default(false) @map("email_sent")
+  emailError         String?              @map("email_error") @db.Text
   createdAt          DateTime?            @map("created_at") @db.Timestamp(0)
   updatedAt          DateTime?            @updatedAt @map("updated_at") @db.Timestamp(0)
   ticket_attachments TicketAttachment[]

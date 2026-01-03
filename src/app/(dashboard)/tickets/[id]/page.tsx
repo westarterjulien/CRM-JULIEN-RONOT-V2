@@ -247,23 +247,29 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
   const handleGenerateAI = async () => {
     setAiLoading(true)
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      const res = await fetch(`/api/tickets/${id}/ai-generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          additionalInfo: aiAdditionalInfo,
+          instructions: aiInstructions,
+        }),
+      })
 
-      const sampleResponse = `Bonjour,
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || "Erreur de génération")
+      }
 
-Merci de nous avoir contacté concernant votre demande.
-
-Nous avons bien pris en compte votre message et nous allons traiter votre demande dans les plus brefs délais.
-
-${aiAdditionalInfo ? `\nContexte supplémentaire pris en compte : ${aiAdditionalInfo}` : ""}
-
-N'hésitez pas à nous recontacter si vous avez des questions supplémentaires.
-
-Cordialement,
-L'équipe Support`
-
-      setReplyContent(sampleResponse)
+      const data = await res.json()
+      setReplyContent(data.response)
       setAiDialogOpen(false)
+      setAiAdditionalInfo("")
+      setAiInstructions("")
+
+      if (data.warning) {
+        console.log("AI Warning:", data.warning)
+      }
     } catch (error) {
       console.error("Error generating AI response:", error)
       alert("Erreur lors de la génération de la réponse IA")
@@ -363,6 +369,42 @@ L'équipe Support`
 
   const getInitials = (name: string) => {
     return name.split(" ").map(n => n[0]).join("").toUpperCase().substring(0, 2)
+  }
+
+  // Clean HTML content for display
+  const cleanHtmlContent = (html: string): string => {
+    if (!html) return ""
+
+    // Remove script tags
+    let cleaned = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+
+    // Remove style tags
+    cleaned = cleaned.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+
+    // Remove meta tags
+    cleaned = cleaned.replace(/<meta[^>]*>/gi, "")
+
+    // Remove head section entirely
+    cleaned = cleaned.replace(/<head\b[^<]*(?:(?!<\/head>)<[^<]*)*<\/head>/gi, "")
+
+    // Remove html and body tags but keep content
+    cleaned = cleaned.replace(/<\/?html[^>]*>/gi, "")
+    cleaned = cleaned.replace(/<\/?body[^>]*>/gi, "")
+
+    // Remove onclick and other event handlers
+    cleaned = cleaned.replace(/\s*on\w+="[^"]*"/gi, "")
+    cleaned = cleaned.replace(/\s*on\w+='[^']*'/gi, "")
+
+    // Clean up excessive whitespace
+    cleaned = cleaned.replace(/\n\s*\n\s*\n/g, "\n\n")
+    cleaned = cleaned.trim()
+
+    return cleaned
+  }
+
+  // Check if content looks like HTML
+  const isHtmlContent = (content: string): boolean => {
+    return /<[a-z][\s\S]*>/i.test(content)
   }
 
   const inputStyle = {
@@ -578,16 +620,28 @@ L'équipe Support`
                         )}
                       </div>
 
-                      <div
-                        className="whitespace-pre-wrap text-sm p-3 rounded-xl"
-                        style={{
-                          background: msg.isInternal ? "#FFFBEB" : "#F5F5F7",
-                          border: msg.isInternal ? "1px solid #FEF3C7" : "none",
-                          color: "#444444"
-                        }}
-                      >
-                        {msg.content}
-                      </div>
+                      {isHtmlContent(msg.content) ? (
+                        <div
+                          className="text-sm p-3 rounded-xl prose prose-sm max-w-none"
+                          style={{
+                            background: msg.isInternal ? "#FFFBEB" : "#F5F5F7",
+                            border: msg.isInternal ? "1px solid #FEF3C7" : "none",
+                            color: "#444444"
+                          }}
+                          dangerouslySetInnerHTML={{ __html: cleanHtmlContent(msg.content) }}
+                        />
+                      ) : (
+                        <div
+                          className="whitespace-pre-wrap text-sm p-3 rounded-xl"
+                          style={{
+                            background: msg.isInternal ? "#FFFBEB" : "#F5F5F7",
+                            border: msg.isInternal ? "1px solid #FEF3C7" : "none",
+                            color: "#444444"
+                          }}
+                        >
+                          {msg.content}
+                        </div>
+                      )}
 
                       {msg.ticket_attachments.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-2">

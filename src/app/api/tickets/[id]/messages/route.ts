@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { notifyClientReply, parseSlackConfig } from "@/lib/slack"
+import { sendO365Email, cleanHtmlContent } from "@/lib/o365-email"
 
 // Get Slack config from tenant settings
 async function getSlackConfig() {
@@ -158,6 +159,66 @@ export async function POST(
       where: { id: BigInt(id) },
       data: updateData,
     })
+
+    // Send email via O365 for outgoing messages (staff replies to clients)
+    let emailSent = false
+    let emailError: string | null = null
+
+    if (messageType === "email_out" && !body.isInternal && body.userId) {
+      const recipientEmail = body.toEmail || ticket.senderEmail
+
+      if (recipientEmail) {
+        // Get sender info
+        const sender = await prisma.user.findUnique({
+          where: { id: BigInt(body.userId) },
+          select: { name: true, email: true },
+        })
+
+        // Build email subject with Re: if it's a reply
+        const emailSubject = ticket.subject.startsWith("Re:")
+          ? ticket.subject
+          : `Re: ${ticket.subject}`
+
+        // Build email body with signature
+        const signature = `
+<br><br>
+<div style="color: #666; font-size: 12px; border-top: 1px solid #ddd; padding-top: 10px; margin-top: 20px;">
+  ${sender?.name || "L'équipe support"}<br>
+  <a href="mailto:${sender?.email || ""}">${sender?.email || ""}</a>
+</div>`
+
+        const emailBody = body.content + signature
+
+        console.log(`[Tickets] Sending email to ${recipientEmail}...`)
+
+        const result = await sendO365Email({
+          to: recipientEmail,
+          subject: emailSubject,
+          body: emailBody,
+          isHtml: true,
+          replyToMessageId: ticket.emailMessageId || undefined,
+          cc: body.ccEmails ? body.ccEmails.split(",").map((e: string) => e.trim()) : undefined,
+        })
+
+        emailSent = result.success
+        emailError = result.error || null
+
+        if (result.success) {
+          console.log(`[Tickets] Email sent successfully to ${recipientEmail}`)
+        } else {
+          console.error(`[Tickets] Failed to send email: ${result.error}`)
+        }
+
+        // Update message with email status
+        await prisma.ticketMessage.update({
+          where: { id: message.id },
+          data: {
+            emailSent: result.success,
+            emailError: result.error || null,
+          },
+        })
+      }
+    }
 
     // Send Slack notification for client reply (only for non-internal messages from clients)
     if (!body.isInternal && !body.userId && messageType === "email_in") {
