@@ -112,7 +112,7 @@ export default function ClientsPage() {
   const [data, setData] = useState<PaginatedResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState(searchParams.get("search") || "")
-  const [status, setStatus] = useState(searchParams.get("status") || "active")
+  const [status, setStatus] = useState(searchParams.get("status") || "all")
   const [perPage, setPerPage] = useState(searchParams.get("perPage") || "15")
   const [page, setPage] = useState(parseInt(searchParams.get("page") || "1"))
   const [sortBy, setSortBy] = useState(searchParams.get("sortBy") || "companyName")
@@ -148,7 +148,7 @@ export default function ClientsPage() {
   useEffect(() => {
     const params = new URLSearchParams()
     if (search) params.set("search", search)
-    if (status !== "active") params.set("status", status)
+    if (status !== "all") params.set("status", status)
     if (perPage !== "15") params.set("perPage", perPage)
     if (page > 1) params.set("page", page.toString())
     if (sortBy !== "companyName") params.set("sortBy", sortBy)
@@ -341,9 +341,9 @@ export default function ClientsPage() {
               <option value="50">50 / page</option>
             </select>
 
-            {(search || status !== "active") && (
+            {(search || status !== "all") && (
               <button
-                onClick={() => { setSearch(""); setStatus("active"); setPage(1) }}
+                onClick={() => { setSearch(""); setStatus("all"); setPage(1) }}
                 className="px-4 py-2.5 rounded-xl text-sm font-medium transition-colors hover:bg-[#EEEEEE]"
                 style={{ background: "#F5F5F7", color: "#666666" }}
               >
@@ -369,7 +369,7 @@ export default function ClientsPage() {
               </div>
               <p className="text-base font-medium" style={{ color: "#666666" }}>Aucun client trouvé</p>
               <p className="text-sm mt-1" style={{ color: "#999999" }}>Commencez par ajouter votre premier client</p>
-              {!search && status === "active" && (
+              {!search && status === "all" && (
                 <Link href="/clients/new">
                   <button
                     className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white"

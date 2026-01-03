@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   const page = parseInt(searchParams.get("page") || "1")
   const perPage = parseInt(searchParams.get("perPage") || "15")
   const search = searchParams.get("search") || ""
-  const status = searchParams.get("status") || "active"
+  const status = searchParams.get("status") || "all"
   const sortBy = searchParams.get("sortBy") || "companyName"
   const sortOrder = searchParams.get("sortOrder") || "asc"
 
