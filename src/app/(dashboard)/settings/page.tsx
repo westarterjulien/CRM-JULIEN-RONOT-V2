@@ -226,6 +226,10 @@ function SettingsContent() {
   const [azureGroups, setAzureGroups] = useState<Array<{ id: string; name: string; description: string; type: string }>>([])
   const [loadingAzureGroups, setLoadingAzureGroups] = useState(false)
   const [azureGroupsError, setAzureGroupsError] = useState("")
+  // O365 Mailbox Connection (for tickets)
+  const [o365MailboxConnected, setO365MailboxConnected] = useState(false)
+  const [o365ConnectedEmail, setO365ConnectedEmail] = useState("")
+  const [connectingO365Mailbox, setConnectingO365Mailbox] = useState(false)
 
   // GoCardless (Bank Account Data)
   const [gocardlessEnabled, setGocardlessEnabled] = useState(false)
@@ -312,6 +316,18 @@ function SettingsContent() {
         setO365SupportEmail(data.settings?.o365SupportEmail || "")
         setO365AutoSync(data.settings?.o365AutoSync ?? false)
         setO365AllowedGroups(data.settings?.o365AllowedGroups || "")
+
+        // Load O365 mailbox connection status
+        try {
+          const o365StatusRes = await fetch("/api/tickets/sync-o365")
+          if (o365StatusRes.ok) {
+            const o365Status = await o365StatusRes.json()
+            setO365MailboxConnected(o365Status.connected || false)
+            setO365ConnectedEmail(o365Status.connectedEmail || "")
+          }
+        } catch (e) {
+          console.error("Error fetching O365 mailbox status:", e)
+        }
 
         // GoCardless
         setGocardlessEnabled(data.settings?.gocardlessEnabled || false)
@@ -1620,10 +1636,15 @@ function SettingsContent() {
                       </h4>
                       <ol className="text-sm space-y-1 list-decimal list-inside mb-3" style={{ color: "#0064FA" }}>
                         <li>Créez une application dans Azure AD (App registrations)</li>
-                        <li>Configurez le Redirect URI : <code className="bg-white/50 px-1 rounded text-xs">https://crm.julienronot.fr/api/auth/microsoft/callback</code></li>
+                        <li>Configurez les Redirect URIs (Web) :
+                          <ul className="ml-4 mt-1 space-y-0.5 list-disc">
+                            <li><code className="bg-white/50 px-1 rounded text-xs">https://crm.julienronot.fr/api/auth/microsoft/callback</code> <span className="text-xs">(SSO)</span></li>
+                            <li><code className="bg-white/50 px-1 rounded text-xs">https://crm.julienronot.fr/api/tickets/o365-callback</code> <span className="text-xs">(Mailbox)</span></li>
+                          </ul>
+                        </li>
                         <li>Ajoutez les permissions Microsoft Graph (voir tableau ci-dessous)</li>
                         <li>Créez un Client Secret et copiez les identifiants</li>
-                        <li><strong>Important :</strong> Pour les permissions Application, cliquez sur &quot;Grant admin consent&quot;</li>
+                        <li><strong>Important :</strong> Pour Group.Read.All (Application), cliquez sur &quot;Grant admin consent&quot;</li>
                       </ol>
                     </div>
 
@@ -1677,28 +1698,28 @@ function SettingsContent() {
                           {/* Tickets Permissions Header */}
                           <tr style={{ background: "#FFF8E1" }}>
                             <td colSpan={3} className="px-3 py-1.5 font-semibold" style={{ color: "#F57C00" }}>
-                              📧 Tickets (Synchronisation emails)
+                              📧 Tickets (Synchronisation emails) - Requiert connexion OAuth
                             </td>
                           </tr>
                           <tr style={{ borderBottom: "1px solid #EEE" }}>
                             <td className="px-3 py-1.5 font-mono">Mail.Read</td>
-                            <td className="px-3 py-1.5"><span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#FFF3E0", color: "#E65100" }}>Application</span></td>
+                            <td className="px-3 py-1.5"><span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#E3F2FD", color: "#1565C0" }}>Delegated</span></td>
                             <td className="px-3 py-1.5">Lire les emails de la boîte support</td>
                           </tr>
                           <tr style={{ borderBottom: "1px solid #EEE" }}>
-                            <td className="px-3 py-1.5 font-mono">Mail.ReadBasic</td>
-                            <td className="px-3 py-1.5"><span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#FFF3E0", color: "#E65100" }}>Application</span></td>
-                            <td className="px-3 py-1.5">Lire les métadonnées des emails</td>
+                            <td className="px-3 py-1.5 font-mono">Mail.ReadWrite</td>
+                            <td className="px-3 py-1.5"><span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#E3F2FD", color: "#1565C0" }}>Delegated</span></td>
+                            <td className="px-3 py-1.5">Marquer comme lu, déplacer, archiver</td>
                           </tr>
                           <tr style={{ borderBottom: "1px solid #EEE" }}>
                             <td className="px-3 py-1.5 font-mono">Mail.Send</td>
-                            <td className="px-3 py-1.5"><span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#FFF3E0", color: "#E65100" }}>Application</span></td>
+                            <td className="px-3 py-1.5"><span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#E3F2FD", color: "#1565C0" }}>Delegated</span></td>
                             <td className="px-3 py-1.5">Envoyer des réponses aux tickets</td>
                           </tr>
                           <tr>
-                            <td className="px-3 py-1.5 font-mono">Mail.ReadWrite</td>
-                            <td className="px-3 py-1.5"><span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#FFF3E0", color: "#E65100" }}>Application</span></td>
-                            <td className="px-3 py-1.5">Marquer comme lu, déplacer, archiver</td>
+                            <td className="px-3 py-1.5 font-mono">offline_access</td>
+                            <td className="px-3 py-1.5"><span className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#E3F2FD", color: "#1565C0" }}>Delegated</span></td>
+                            <td className="px-3 py-1.5">Maintenir la connexion (refresh token)</td>
                           </tr>
                         </tbody>
                       </table>
@@ -1741,6 +1762,54 @@ function SettingsContent() {
                       <label className="text-sm font-medium" style={{ color: "#444444" }}>Adresse email de support *</label>
                       <input type="email" value={o365SupportEmail} onChange={(e) => setO365SupportEmail(e.target.value)} placeholder="support@votreentreprise.com" className="w-full px-4 py-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#0064FA]/20" style={inputStyle} />
                       <p className="text-xs" style={{ color: "#999999" }}>La boîte mail à synchroniser pour les tickets</p>
+                    </div>
+
+                    {/* Mailbox Connection Section */}
+                    <div className="rounded-xl p-4 space-y-3" style={{ background: o365MailboxConnected ? "#E8F5E9" : "#FFF8E1", border: `1px solid ${o365MailboxConnected ? "#4CAF50" : "#F57C00"}` }}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: o365MailboxConnected ? "#C8E6C9" : "#FFECB3" }}>
+                            <Mail className="h-5 w-5" style={{ color: o365MailboxConnected ? "#2E7D32" : "#F57C00" }} />
+                          </div>
+                          <div>
+                            <p className="font-medium" style={{ color: o365MailboxConnected ? "#2E7D32" : "#E65100" }}>
+                              {o365MailboxConnected ? "Boîte mail connectée" : "Connexion requise"}
+                            </p>
+                            <p className="text-sm" style={{ color: o365MailboxConnected ? "#388E3C" : "#F57C00" }}>
+                              {o365MailboxConnected
+                                ? `Connecté à ${o365ConnectedEmail}`
+                                : "Autorisez l'accès à la boîte mail pour synchroniser les emails"}
+                            </p>
+                          </div>
+                        </div>
+                        {o365ClientId && o365ClientSecret && o365TenantId && o365SupportEmail && (
+                          <button
+                            onClick={() => {
+                              setConnectingO365Mailbox(true)
+                              window.location.href = "/api/tickets/o365-connect"
+                            }}
+                            disabled={connectingO365Mailbox}
+                            className="px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-50"
+                            style={{
+                              background: o365MailboxConnected ? "#FFFFFF" : "#F57C00",
+                              color: o365MailboxConnected ? "#F57C00" : "#FFFFFF",
+                              border: o365MailboxConnected ? "1px solid #F57C00" : "none"
+                            }}
+                          >
+                            {connectingO365Mailbox ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <ExternalLink className="h-4 w-4" />
+                            )}
+                            {o365MailboxConnected ? "Reconnecter" : "Connecter la boîte mail"}
+                          </button>
+                        )}
+                      </div>
+                      {!o365ClientId || !o365ClientSecret || !o365TenantId || !o365SupportEmail ? (
+                        <p className="text-xs" style={{ color: "#F57C00" }}>
+                          Remplissez d&apos;abord les champs Client ID, Tenant ID, Client Secret et Email de support ci-dessus
+                        </p>
+                      ) : null}
                     </div>
 
                     <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: "#F5F5F7" }}>

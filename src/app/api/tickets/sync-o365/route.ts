@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
-// Get O365 settings from tenant
+// Get O365 settings from tenant (including OAuth tokens)
 async function getO365Settings() {
   const tenant = await prisma.tenants.findFirst({
     where: { id: BigInt(1) },
@@ -19,14 +19,19 @@ async function getO365Settings() {
       supportEmail: settings.o365SupportEmail,
       autoSync: settings.o365AutoSync,
       lastO365Sync: settings.lastO365Sync ? new Date(settings.lastO365Sync) : null,
+      // OAuth tokens (delegated permissions)
+      accessToken: settings.o365AccessToken,
+      refreshToken: settings.o365RefreshToken,
+      tokenExpiresAt: settings.o365TokenExpiresAt ? new Date(settings.o365TokenExpiresAt) : null,
+      connectedEmail: settings.o365ConnectedEmail,
     }
   } catch {
     return null
   }
 }
 
-// Update last sync timestamp
-async function updateLastSync() {
+// Update settings in database
+async function updateSettings(updates: Record<string, any>) {
   const tenant = await prisma.tenants.findFirst({
     where: { id: BigInt(1) },
   })
@@ -34,20 +39,21 @@ async function updateLastSync() {
   if (!tenant) return
 
   const currentSettings = tenant.settings ? JSON.parse(tenant.settings) : {}
-  currentSettings.lastO365Sync = new Date().toISOString()
+  const updatedSettings = { ...currentSettings, ...updates }
 
   await prisma.tenants.update({
     where: { id: BigInt(1) },
-    data: { settings: JSON.stringify(currentSettings) },
+    data: { settings: JSON.stringify(updatedSettings) },
   })
 }
 
-// Get access token from Microsoft
-async function getAccessToken(settings: {
+// Refresh access token using refresh token
+async function refreshAccessToken(settings: {
   clientId: string
   clientSecret: string
   tenantId: string
-}) {
+  refreshToken: string
+}): Promise<{ accessToken: string; refreshToken: string; expiresAt: Date } | null> {
   const tokenUrl = `https://login.microsoftonline.com/${settings.tenantId}/oauth2/v2.0/token`
 
   const response = await fetch(tokenUrl, {
@@ -56,18 +62,76 @@ async function getAccessToken(settings: {
     body: new URLSearchParams({
       client_id: settings.clientId,
       client_secret: settings.clientSecret,
-      scope: "https://graph.microsoft.com/.default",
-      grant_type: "client_credentials",
+      refresh_token: settings.refreshToken,
+      grant_type: "refresh_token",
+      scope: "https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send offline_access",
     }),
   })
 
   if (!response.ok) {
     const error = await response.json()
-    throw new Error(error.error_description || "Failed to get access token")
+    console.error("Token refresh failed:", error)
+    return null
   }
 
   const data = await response.json()
-  return data.access_token
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token || settings.refreshToken, // Use old refresh token if new one not provided
+    expiresAt: new Date(Date.now() + data.expires_in * 1000),
+  }
+}
+
+// Get valid access token (refresh if needed)
+async function getValidAccessToken(settings: {
+  clientId: string
+  clientSecret: string
+  tenantId: string
+  accessToken?: string
+  refreshToken?: string
+  tokenExpiresAt?: Date | null
+}): Promise<string | null> {
+  // Check if we have OAuth tokens
+  if (!settings.refreshToken) {
+    return null // No OAuth connection, needs to connect mailbox first
+  }
+
+  // Check if current token is still valid (with 5 min buffer)
+  if (settings.accessToken && settings.tokenExpiresAt) {
+    const expiresAt = new Date(settings.tokenExpiresAt)
+    if (expiresAt > new Date(Date.now() + 5 * 60 * 1000)) {
+      return settings.accessToken
+    }
+  }
+
+  // Token expired or about to expire, refresh it
+  console.log("Refreshing O365 access token...")
+  const newTokens = await refreshAccessToken({
+    clientId: settings.clientId,
+    clientSecret: settings.clientSecret,
+    tenantId: settings.tenantId,
+    refreshToken: settings.refreshToken,
+  })
+
+  if (!newTokens) {
+    // Refresh failed, user needs to reconnect
+    await updateSettings({
+      o365AccessToken: null,
+      o365RefreshToken: null,
+      o365TokenExpiresAt: null,
+      o365ConnectedEmail: null,
+    })
+    return null
+  }
+
+  // Save new tokens
+  await updateSettings({
+    o365AccessToken: newTokens.accessToken,
+    o365RefreshToken: newTokens.refreshToken,
+    o365TokenExpiresAt: newTokens.expiresAt.toISOString(),
+  })
+
+  return newTokens.accessToken
 }
 
 // Generate unique ticket number
@@ -99,28 +163,37 @@ export async function POST(request: NextRequest) {
 
     if (!settings?.enabled) {
       return NextResponse.json(
-        { success: false, message: "O365 non activé" },
+        { success: false, message: "O365 non active" },
         { status: 400 }
       )
     }
 
     if (!settings.clientId || !settings.clientSecret || !settings.tenantId || !settings.supportEmail) {
       return NextResponse.json(
-        { success: false, message: "Configuration O365 incomplète" },
+        { success: false, message: "Configuration O365 incomplete" },
         { status: 400 }
       )
     }
 
-    const accessToken = await getAccessToken(settings)
+    // Get valid access token (using OAuth delegated flow)
+    const accessToken = await getValidAccessToken(settings)
+
+    if (!accessToken) {
+      return NextResponse.json({
+        success: false,
+        message: "Boite mail non connectee. Veuillez connecter la boite mail O365 dans les parametres.",
+        needsConnection: true,
+      }, { status: 401 })
+    }
 
     // Calculate since date (last sync or 7 days ago for first sync)
     const since = settings.lastO365Sync || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     const sinceFilter = since.toISOString()
 
-    // Fetch emails from the support mailbox since last sync
+    // Fetch emails using /me/messages (delegated permissions)
     // In debug mode, fetch ALL emails (including read); otherwise only unread
     const readFilter = debug ? "" : " and isRead eq false"
-    const messagesUrl = `https://graph.microsoft.com/v1.0/users/${settings.supportEmail}/messages?$filter=receivedDateTime ge ${sinceFilter}${readFilter}&$orderby=receivedDateTime desc&$top=50&$select=id,subject,from,bodyPreview,body,receivedDateTime,conversationId,isRead`
+    const messagesUrl = `https://graph.microsoft.com/v1.0/me/messages?$filter=receivedDateTime ge ${sinceFilter}${readFilter}&$orderby=receivedDateTime desc&$top=50&$select=id,subject,from,bodyPreview,body,receivedDateTime,conversationId,isRead`
 
     const messagesResponse = await fetch(messagesUrl, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -128,9 +201,26 @@ export async function POST(request: NextRequest) {
 
     if (!messagesResponse.ok) {
       const error = await messagesResponse.json()
+      console.error("Graph API error:", error)
+
+      // If unauthorized, clear tokens so user can reconnect
+      if (messagesResponse.status === 401) {
+        await updateSettings({
+          o365AccessToken: null,
+          o365RefreshToken: null,
+          o365TokenExpiresAt: null,
+          o365ConnectedEmail: null,
+        })
+        return NextResponse.json({
+          success: false,
+          message: "Session expiree. Veuillez reconnecter la boite mail O365.",
+          needsConnection: true,
+        }, { status: 401 })
+      }
+
       return NextResponse.json({
         success: false,
-        message: `Erreur d'accès à la boîte mail: ${error.error?.message || "Permissions insuffisantes"}`,
+        message: `Erreur d'acces a la boite mail: ${error.error?.message || "Permissions insuffisantes"}`,
       })
     }
 
@@ -143,6 +233,7 @@ export async function POST(request: NextRequest) {
         debug: true,
         sinceFilter,
         supportEmail: settings.supportEmail,
+        connectedEmail: settings.connectedEmail,
         emailsFound: messages.length,
         emails: messages.map((e: any) => ({
           id: e.id,
@@ -267,10 +358,10 @@ export async function POST(request: NextRequest) {
         created++
       }
 
-      // Mark email as read in O365
+      // Mark email as read in O365 using /me endpoint
       try {
         await fetch(
-          `https://graph.microsoft.com/v1.0/users/${settings.supportEmail}/messages/${messageId}`,
+          `https://graph.microsoft.com/v1.0/me/messages/${messageId}`,
           {
             method: "PATCH",
             headers: {
@@ -286,11 +377,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Update last sync timestamp
-    await updateLastSync()
+    await updateSettings({ lastO365Sync: new Date().toISOString() })
 
     return NextResponse.json({
       success: true,
-      message: `Synchronisation terminée: ${created} ticket(s) créé(s), ${updated} message(s) ajouté(s), ${skipped} ignoré(s)`,
+      message: `Synchronisation terminee: ${created} ticket(s) cree(s), ${updated} message(s) ajoute(s), ${skipped} ignore(s)`,
       stats: { created, updated, skipped, total: messages.length },
     })
   } catch (error) {
@@ -310,9 +401,13 @@ export async function GET() {
   try {
     const settings = await getO365Settings()
 
+    const isConnected = !!(settings?.accessToken && settings?.refreshToken)
+
     return NextResponse.json({
       enabled: settings?.enabled || false,
       configured: !!(settings?.clientId && settings?.clientSecret && settings?.tenantId && settings?.supportEmail),
+      connected: isConnected,
+      connectedEmail: isConnected ? settings?.connectedEmail : null,
       lastSync: settings?.lastO365Sync || null,
       supportEmail: settings?.supportEmail || null,
     })
