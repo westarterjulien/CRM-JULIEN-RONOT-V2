@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   Users,
+  UserCog,
   FileText,
   Ticket,
   Wallet,
@@ -63,6 +64,7 @@ const baseNavItems: Omit<NavItem, "badge">[] = [
   { id: "treasury", label: "Trésorerie", href: "/treasury", icon: Wallet },
   { id: "campaigns", label: "Campagnes", href: "/campaigns", icon: Mail },
   { id: "tickets", label: "Tickets", href: "/tickets", icon: Ticket },
+  { id: "users", label: "Utilisateurs", href: "/users", icon: UserCog },
 ]
 
 // Deep Blue Navy Theme
