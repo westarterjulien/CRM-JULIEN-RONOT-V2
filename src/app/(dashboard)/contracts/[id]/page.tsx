@@ -98,7 +98,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
   const [resetting, setResetting] = useState(false)
   const [syncing, setSyncing] = useState(false)
-  const [showPreview, setShowPreview] = useState(false)
+  const [showPreview, setShowPreview] = useState(true) // Show preview by default for completed contracts
 
   useEffect(() => {
     fetchContract()
