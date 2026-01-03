@@ -20,37 +20,47 @@ let prismaInstance: PrismaClient | null = null
 const createPrismaClient = (): PrismaClient => {
   if (prismaInstance) return prismaInstance
 
-  try {
-    const dbUrl = process.env.DATABASE_URL
-    if (!dbUrl) {
-      throw new Error('DATABASE_URL is not defined')
-    }
-
-    const dbConfig = parseDbUrl(dbUrl)
-
-    const adapter = new PrismaMariaDb({
-      host: dbConfig.host,
-      port: dbConfig.port,
-      user: dbConfig.user,
-      password: dbConfig.password,
-      database: dbConfig.database,
-      connectionLimit: 10,
-    })
-
-    prismaInstance = new PrismaClient({ adapter })
-    return prismaInstance
-  } catch (error) {
-    console.error('Failed to create Prisma client:', error)
-    throw error
+  const dbUrl = process.env.DATABASE_URL
+  if (!dbUrl) {
+    throw new Error('DATABASE_URL is not defined')
   }
+
+  const dbConfig = parseDbUrl(dbUrl)
+
+  const adapter = new PrismaMariaDb({
+    host: dbConfig.host,
+    port: dbConfig.port,
+    user: dbConfig.user,
+    password: dbConfig.password,
+    database: dbConfig.database,
+    connectionLimit: 10,
+  })
+
+  prismaInstance = new PrismaClient({ adapter })
+  return prismaInstance
 }
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient()
+// Lazy initialization - don't create client during build
+const getPrismaClient = (): PrismaClient => {
+  if (globalForPrisma.prisma) return globalForPrisma.prisma
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+  const client = createPrismaClient()
+  if (process.env.NODE_ENV !== 'production') {
+    globalForPrisma.prisma = client
+  }
+  return client
+}
+
+// Export a proxy that lazily initializes the client
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_, prop) {
+    const client = getPrismaClient()
+    return (client as Record<string | symbol, unknown>)[prop]
+  }
+})
 
 export default prisma
