@@ -92,6 +92,9 @@ async function generateTicketNumber(): Promise<string> {
 // POST: Sync emails from O365 to tickets
 export async function POST(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url)
+    const debug = searchParams.get("debug") === "true"
+
     const settings = await getO365Settings()
 
     if (!settings?.enabled) {
@@ -110,12 +113,14 @@ export async function POST(request: NextRequest) {
 
     const accessToken = await getAccessToken(settings)
 
-    // Calculate since date (last sync or 24h ago)
-    const since = settings.lastO365Sync || new Date(Date.now() - 24 * 60 * 60 * 1000)
+    // Calculate since date (last sync or 7 days ago for first sync)
+    const since = settings.lastO365Sync || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     const sinceFilter = since.toISOString()
 
-    // Fetch unread emails from the support mailbox since last sync
-    const messagesUrl = `https://graph.microsoft.com/v1.0/users/${settings.supportEmail}/messages?$filter=receivedDateTime ge ${sinceFilter} and isRead eq false&$orderby=receivedDateTime desc&$top=50&$select=id,subject,from,bodyPreview,body,receivedDateTime,conversationId`
+    // Fetch emails from the support mailbox since last sync
+    // In debug mode, fetch ALL emails (including read); otherwise only unread
+    const readFilter = debug ? "" : " and isRead eq false"
+    const messagesUrl = `https://graph.microsoft.com/v1.0/users/${settings.supportEmail}/messages?$filter=receivedDateTime ge ${sinceFilter}${readFilter}&$orderby=receivedDateTime desc&$top=50&$select=id,subject,from,bodyPreview,body,receivedDateTime,conversationId,isRead`
 
     const messagesResponse = await fetch(messagesUrl, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -131,6 +136,23 @@ export async function POST(request: NextRequest) {
 
     const messagesData = await messagesResponse.json()
     const messages = messagesData.value || []
+
+    // Debug mode: return raw data
+    if (debug) {
+      return NextResponse.json({
+        debug: true,
+        sinceFilter,
+        supportEmail: settings.supportEmail,
+        emailsFound: messages.length,
+        emails: messages.map((e: any) => ({
+          id: e.id,
+          subject: e.subject,
+          from: e.from?.emailAddress?.address,
+          receivedDateTime: e.receivedDateTime,
+          isRead: e.isRead,
+        })),
+      })
+    }
 
     let created = 0
     let updated = 0
