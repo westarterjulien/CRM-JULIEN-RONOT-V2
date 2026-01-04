@@ -58,6 +58,7 @@ export default function ProjectsPage() {
 
     setCreating(true)
     try {
+      console.log("Creating project:", { name: newProjectName.trim(), color: newProjectColor })
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -67,12 +68,18 @@ export default function ProjectsPage() {
         }),
       })
 
+      console.log("Response status:", res.status)
+      const data = await res.json()
+      console.log("Response data:", data)
+
       if (res.ok) {
-        const project = await res.json()
-        router.push(`/projects/${project.id}`)
+        router.push(`/projects/${data.id}`)
+      } else {
+        alert(`Erreur: ${data.error || "Impossible de creer le projet"}`)
       }
     } catch (error) {
       console.error("Error creating project:", error)
+      alert("Erreur de connexion au serveur")
     } finally {
       setCreating(false)
     }
