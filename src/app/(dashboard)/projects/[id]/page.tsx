@@ -23,6 +23,9 @@ import {
   Settings,
   Share2,
   StickyNote,
+  ChevronDown,
+  ChevronRight,
+  FileText,
 } from "lucide-react"
 import Link from "next/link"
 import {
@@ -33,6 +36,9 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import CardDetailModal from "@/components/projects/CardDetailModal"
+import { NoteQuickAdd } from "@/components/notes/NoteQuickAdd"
+import { NoteList } from "@/components/notes/NoteList"
+import { NoteEditModal } from "@/components/notes/NoteEditModal"
 
 interface Card {
   id: string
@@ -111,9 +117,107 @@ export default function ProjectBoardPage({ params }: { params: Promise<{ id: str
   const [clientSearch, setClientSearch] = useState("")
   const [showClientDropdown, setShowClientDropdown] = useState(false)
 
+  // Notes section
+  const [projectNotes, setProjectNotes] = useState<any[]>([])
+  const [notesExpanded, setNotesExpanded] = useState(true)
+  const [notesLoading, setNotesLoading] = useState(false)
+  const [editingNote, setEditingNote] = useState<any | null>(null)
+
   useEffect(() => {
     fetchProject()
+    fetchProjectNotes()
   }, [resolvedParams.id])
+
+  const fetchProjectNotes = async () => {
+    setNotesLoading(true)
+    try {
+      const res = await fetch(`/api/notes?entityType=project&entityId=${resolvedParams.id}`)
+      if (res.ok) {
+        const data = await res.json()
+        setProjectNotes(data.notes || [])
+      }
+    } catch (error) {
+      console.error("Error fetching notes:", error)
+    } finally {
+      setNotesLoading(false)
+    }
+  }
+
+  const handleCreateNote = async (data: {
+    content: string
+    type: "quick" | "note" | "todo"
+    tagIds: string[]
+    entityLinks: { entityType: string; entityId: string }[]
+    reminderAt: string | null
+  }) => {
+    // Ensure project link is included (NoteQuickAdd should already include it via defaultEntityLink)
+    const hasProjectLink = data.entityLinks.some(
+      l => l.entityType === "project" && l.entityId === resolvedParams.id
+    )
+    const entityLinks = hasProjectLink
+      ? data.entityLinks
+      : [{ entityType: "project", entityId: resolvedParams.id }, ...data.entityLinks]
+
+    const res = await fetch("/api/notes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...data, entityLinks }),
+    })
+    if (res.ok) {
+      const newNote = await res.json()
+      fetchProjectNotes()
+      return { id: newNote.id }
+    }
+  }
+
+  const handleDeleteNote = async (noteId: string) => {
+    if (!confirm("Supprimer cette note ?")) return
+    try {
+      await fetch(`/api/notes/${noteId}`, { method: "DELETE" })
+      fetchProjectNotes()
+    } catch (error) {
+      console.error("Error deleting note:", error)
+    }
+  }
+
+  const handleArchiveNote = async (noteId: string) => {
+    try {
+      await fetch(`/api/notes/${noteId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isArchived: true }),
+      })
+      fetchProjectNotes()
+    } catch (error) {
+      console.error("Error archiving note:", error)
+    }
+  }
+
+  const handlePinNote = async (noteId: string, pinned: boolean) => {
+    try {
+      await fetch(`/api/notes/${noteId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isTop: pinned }),
+      })
+      fetchProjectNotes()
+    } catch (error) {
+      console.error("Error pinning note:", error)
+    }
+  }
+
+  const handleUpdateNoteContent = async (noteId: string, content: string) => {
+    try {
+      await fetch(`/api/notes/${noteId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      })
+      fetchProjectNotes()
+    } catch (error) {
+      console.error("Error updating note:", error)
+    }
+  }
 
   const fetchProject = async () => {
     try {
@@ -144,7 +248,7 @@ export default function ProjectBoardPage({ params }: { params: Promise<{ id: str
 
   const fetchClients = async () => {
     try {
-      const res = await fetch("/api/clients?limit=100")
+      const res = await fetch("/api/clients?perPage=500")
       if (res.ok) {
         const data = await res.json()
         setClients(data.clients?.map((c: any) => ({ id: String(c.id), companyName: c.companyName })) || [])
@@ -412,17 +516,11 @@ export default function ProjectBoardPage({ params }: { params: Promise<{ id: str
   const assignees = getAllAssignees()
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
-      {/* Header with project color */}
-      <div
-        className="relative"
-        style={{
-          background: `linear-gradient(135deg, ${project.color}15 0%, ${project.color}05 100%)`,
-          borderBottom: `3px solid ${project.color}`,
-        }}
-      >
+    <div className="-m-4 sm:-m-6 lg:-m-8 min-h-[calc(100vh-64px)] flex flex-col">
+      {/* Header */}
+      <div className="flex-shrink-0 px-6 pt-6 pb-2">
         {/* Top bar */}
-        <div className="flex items-center justify-between px-6 py-3">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.push("/projects")}
@@ -524,7 +622,7 @@ export default function ProjectBoardPage({ params }: { params: Promise<{ id: str
         </div>
 
         {/* Toolbar */}
-        <div className="flex items-center justify-between px-6 py-2 bg-white/50">
+        <div className="flex items-center justify-between mt-4">
           <div className="flex items-center gap-2">
             {/* View toggle */}
             <div className="flex items-center bg-white rounded-lg p-1 shadow-sm">
@@ -586,7 +684,7 @@ export default function ProjectBoardPage({ params }: { params: Promise<{ id: str
 
         {/* Filters panel */}
         {showFilters && (
-          <div className="px-6 py-3 bg-white border-t border-gray-100 flex items-center gap-4">
+          <div className="mt-3 flex items-center gap-4">
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-500">Priorite:</span>
               <select
@@ -626,17 +724,19 @@ export default function ProjectBoardPage({ params }: { params: Promise<{ id: str
         )}
       </div>
 
-      {/* Board / List content */}
-      {viewMode === "board" ? (
-        <div className="flex-1 overflow-x-auto px-4 py-3">
-          <div className="flex gap-3 h-full">
+      {/* Main scrollable content area */}
+      <div className="flex-1 overflow-y-auto">
+        {/* Board / List content */}
+        {viewMode === "board" ? (
+          <div className="overflow-x-auto px-4 pt-4 pb-6">
+            <div className="flex gap-4 min-h-[350px]">
             {project.columns.map((column) => {
               const filteredCards = filterCards(column.cards)
 
               return (
                 <div
                   key={column.id}
-                  className="flex flex-col w-72 flex-shrink-0 bg-slate-100 rounded-lg"
+                  className="flex flex-col w-72 flex-shrink-0 bg-white/60 rounded-xl"
                   onDragOver={(e) => handleDragOver(e, column.id, filteredCards.length)}
                   onDrop={(e) => handleDrop(e, column.id, filteredCards.length)}
                 >
@@ -841,7 +941,7 @@ export default function ProjectBoardPage({ params }: { params: Promise<{ id: str
 
             {/* Add column */}
             {addingColumn ? (
-              <div className="w-72 flex-shrink-0 bg-gray-50 rounded-xl p-3 shadow-sm h-fit">
+              <div className="w-72 flex-shrink-0 bg-white/60 rounded-xl p-3 h-fit">
                 <input
                   type="text"
                   value={newColumnName}
@@ -873,7 +973,7 @@ export default function ProjectBoardPage({ params }: { params: Promise<{ id: str
             ) : (
               <button
                 onClick={() => setAddingColumn(true)}
-                className="w-72 flex-shrink-0 h-12 flex items-center justify-center gap-2 bg-white/50 hover:bg-white rounded-xl text-gray-500 text-sm font-medium transition-all border-2 border-dashed border-gray-300 hover:border-[#0064FA] hover:text-[#0064FA]"
+                className="w-72 flex-shrink-0 h-10 flex items-center justify-center gap-2 text-gray-400 text-sm font-medium transition-all hover:text-[#0064FA] hover:bg-white/50 rounded-xl"
               >
                 <Plus className="h-4 w-4" />
                 Ajouter une colonne
@@ -881,10 +981,10 @@ export default function ProjectBoardPage({ params }: { params: Promise<{ id: str
             )}
           </div>
         </div>
-      ) : (
-        /* List View */
-        <div className="flex-1 overflow-auto p-6 bg-gray-100">
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        ) : (
+          /* List View */
+          <div className="p-4">
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -1025,8 +1125,75 @@ export default function ProjectBoardPage({ params }: { params: Promise<{ id: str
                 Aucune tache trouvee
               </div>
             )}
+            </div>
+          </div>
+        )}
+
+        {/* Notes Section */}
+        <div className="px-6 pt-8 pb-12">
+          <div className="max-w-4xl">
+            {/* Header */}
+            <button
+              onClick={() => setNotesExpanded(!notesExpanded)}
+              className="flex items-center gap-3 mb-6 group"
+            >
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ background: "#E6F0FF" }}
+              >
+                <StickyNote className="h-5 w-5" style={{ color: "#0064FA" }} />
+              </div>
+              <div className="text-left">
+                <h2 className="text-lg font-bold text-gray-900">Notes du projet</h2>
+                <p className="text-sm text-gray-500">{projectNotes.length} note{projectNotes.length !== 1 ? "s" : ""}</p>
+              </div>
+              <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ml-2 ${notesExpanded ? "" : "-rotate-90"}`} />
+            </button>
+
+            {notesExpanded && (
+              <div className="space-y-6">
+                {/* Quick add */}
+                <NoteQuickAdd
+                  onSubmit={handleCreateNote}
+                  defaultEntityLink={{ entityType: "project", entityId: resolvedParams.id, entityName: project.name }}
+                  placeholder="Ajouter une note au projet..."
+                  showEntitySelector={false}
+                />
+
+                {/* Notes list */}
+                <NoteList
+                  notes={projectNotes}
+                  isLoading={notesLoading}
+                  onEdit={setEditingNote}
+                  onDelete={handleDeleteNote}
+                  onArchive={handleArchiveNote}
+                  onPin={handlePinNote}
+                  onUpdateContent={handleUpdateNoteContent}
+                  emptyMessage="Aucune note pour ce projet"
+                  columns={1}
+                />
+              </div>
+            )}
           </div>
         </div>
+      </div>
+
+      {/* Note edit modal */}
+      {editingNote && (
+        <NoteEditModal
+          note={editingNote}
+          tags={[]}
+          onClose={() => setEditingNote(null)}
+          onSave={async (noteId, data) => {
+            await fetch(`/api/notes/${noteId}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(data),
+            })
+            fetchProjectNotes()
+            setEditingNote(null)
+          }}
+        />
       )}
 
       {/* Card detail modal */}

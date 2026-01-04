@@ -278,13 +278,14 @@ export async function GET(request: NextRequest) {
       appName: d.app.app.name,
       appId: d.app.app.applicationId,
       appType: d.app.type,
+      appStatus: d.app.app.applicationStatus,
       repository: d.app.app.repository,
       owner: d.app.app.owner,
       branch: d.app.app.branch,
       logPath: d.deployment.logPath,
     }))
 
-    // Get running deployments count per server
+    // Get running deployments count per server (only count errors if app is currently in error state)
     const runningByServer = healthChecks.map((server) => ({
       name: server.name,
       id: server.id,
@@ -293,7 +294,7 @@ export async function GET(request: NextRequest) {
         (d) => d.server === server.name && d.status === "running"
       ).length,
       errors: deployments.filter(
-        (d) => d.server === server.name && d.status === "error"
+        (d) => d.server === server.name && d.status === "error" && d.appStatus === "error"
       ).length,
     }))
 
@@ -304,7 +305,7 @@ export async function GET(request: NextRequest) {
         total: deployments.length,
         running: deployments.filter((d) => d.status === "running").length,
         done: deployments.filter((d) => d.status === "done").length,
-        error: deployments.filter((d) => d.status === "error").length,
+        error: deployments.filter((d) => d.status === "error" && d.appStatus === "error").length,
       },
     })
   } catch (error) {

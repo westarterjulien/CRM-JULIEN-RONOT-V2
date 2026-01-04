@@ -110,6 +110,22 @@ export function NoteQuickAdd({
     defaultEntityLink ? [defaultEntityLink] : []
   )
   const [reminderAt, setReminderAt] = useState<string | null>(null)
+
+  // Update entityLinks when defaultEntityLink changes (e.g., when project data loads)
+  useEffect(() => {
+    if (defaultEntityLink) {
+      setEntityLinks(prev => {
+        // Check if already present
+        const exists = prev.some(
+          l => l.entityType === defaultEntityLink.entityType && l.entityId === defaultEntityLink.entityId
+        )
+        if (!exists) {
+          return [defaultEntityLink, ...prev]
+        }
+        return prev
+      })
+    }
+  }, [defaultEntityLink])
   const [isExpanded, setIsExpanded] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showTagPicker, setShowTagPicker] = useState(false)

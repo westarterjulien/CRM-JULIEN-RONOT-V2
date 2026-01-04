@@ -40,6 +40,19 @@ export async function GET(
         domains: {
           orderBy: { expirationDate: "asc" },
         },
+        projects: {
+          where: { isArchived: false },
+          orderBy: { updatedAt: "desc" },
+          include: {
+            columns: {
+              include: {
+                cards: {
+                  select: { id: true, isCompleted: true },
+                },
+              },
+            },
+          },
+        },
         _count: {
           select: {
             invoices: true,
@@ -47,6 +60,7 @@ export async function GET(
             subscriptions: true,
             tickets: true,
             domains: true,
+            projects: true,
           },
         },
       },

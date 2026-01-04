@@ -18,6 +18,10 @@ import {
   AlertTriangle,
   Timer,
   Activity,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -27,6 +31,13 @@ interface ServerStatus {
   online: boolean
   running: number
   errors: number
+}
+
+interface DeploymentDetailModalProps {
+  deployment: Deployment | null
+  onClose: () => void
+  onAction: (action: "redeploy" | "cancel", deployment: Deployment) => void
+  actionLoading: string | null
 }
 
 interface Deployment {
@@ -46,6 +57,7 @@ interface Deployment {
   appName: string
   appId: string
   appType: "application" | "compose"
+  appStatus: string
   repository: string | null
   owner: string | null
   branch: string | null
@@ -73,6 +85,8 @@ export default function DeploymentsPage() {
   const [serverFilter, setServerFilter] = useState<string>("")
   const [statusFilter, setStatusFilter] = useState<string>("")
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [selectedDeployment, setSelectedDeployment] = useState<Deployment | null>(null)
+  const [showHistory, setShowHistory] = useState(false)
 
   const fetchDeployments = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true)
@@ -417,21 +431,24 @@ export default function DeploymentsPage() {
                 formatTimeAgo={formatTimeAgo}
                 getStatusConfig={getStatusConfig}
                 highlighted
+                onClick={() => setSelectedDeployment(deployment)}
               />
             ))}
           </div>
         </div>
       )}
 
-      {/* All Deployments */}
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-3">
-          Historique des déploiements
-        </h2>
-        {filteredDeployments && filteredDeployments.length > 0 ? (
-          <div className="space-y-2">
+      {/* Error Deployments - Alert Section (only show if app is currently in error state) */}
+      {filteredDeployments && filteredDeployments.filter((d) => d.status === "error" && d.appStatus === "error").length > 0 && !statusFilter && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-red-600 mb-3 flex items-center gap-2">
+            <XCircle className="h-5 w-5" />
+            Déploiements en erreur ({filteredDeployments.filter((d) => d.status === "error" && d.appStatus === "error").length})
+          </h2>
+          <div className="space-y-3">
             {filteredDeployments
-              .filter((d) => d.status !== "running")
+              .filter((d) => d.status === "error" && d.appStatus === "error")
+              .slice(0, 5)
               .map((deployment) => (
                 <DeploymentCard
                   key={deployment.id}
@@ -441,16 +458,76 @@ export default function DeploymentsPage() {
                   formatDuration={formatDuration}
                   formatTimeAgo={formatTimeAgo}
                   getStatusConfig={getStatusConfig}
+                  onClick={() => setSelectedDeployment(deployment)}
                 />
               ))}
+            {filteredDeployments.filter((d) => d.status === "error" && d.appStatus === "error").length > 5 && (
+              <button
+                onClick={() => setStatusFilter("error")}
+                className="w-full py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                Voir toutes les erreurs ({filteredDeployments.filter((d) => d.status === "error" && d.appStatus === "error").length})
+              </button>
+            )}
           </div>
-        ) : (
-          <div className="text-center py-12 bg-gray-50 rounded-xl border border-gray-200">
-            <Rocket className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-            <p className="text-gray-500">Aucun déploiement trouvé</p>
-          </div>
+        </div>
+      )}
+
+      {/* History Toggle */}
+      <div>
+        <button
+          onClick={() => setShowHistory(!showHistory)}
+          className="flex items-center gap-2 text-lg font-semibold text-gray-900 mb-3 hover:text-[#0064FA] transition-colors"
+        >
+          {showHistory ? (
+            <ChevronUp className="h-5 w-5" />
+          ) : (
+            <ChevronDown className="h-5 w-5" />
+          )}
+          {statusFilter === "error" ? "Tous les déploiements en erreur" : "Historique des déploiements"}
+          {filteredDeployments && (
+            <span className="text-sm font-normal text-gray-500">
+              ({filteredDeployments.filter((d) => statusFilter ? true : d.status !== "running" && d.status !== "error").length})
+            </span>
+          )}
+        </button>
+
+        {showHistory && (
+          <>
+            {filteredDeployments && filteredDeployments.length > 0 ? (
+              <div className="space-y-2">
+                {filteredDeployments
+                  .filter((d) => statusFilter ? true : d.status !== "running" && d.status !== "error")
+                  .map((deployment) => (
+                    <DeploymentCard
+                      key={deployment.id}
+                      deployment={deployment}
+                      onAction={handleAction}
+                      actionLoading={actionLoading}
+                      formatDuration={formatDuration}
+                      formatTimeAgo={formatTimeAgo}
+                      getStatusConfig={getStatusConfig}
+                      onClick={() => setSelectedDeployment(deployment)}
+                    />
+                  ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 bg-gray-50 rounded-xl border border-gray-200">
+                <Rocket className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                <p className="text-gray-500">Aucun déploiement trouvé</p>
+              </div>
+            )}
+          </>
         )}
       </div>
+
+      {/* Deployment Detail Modal */}
+      <DeploymentDetailModal
+        deployment={selectedDeployment}
+        onClose={() => setSelectedDeployment(null)}
+        onAction={handleAction}
+        actionLoading={actionLoading}
+      />
     </div>
   )
 }
@@ -463,6 +540,7 @@ function DeploymentCard({
   formatTimeAgo,
   getStatusConfig,
   highlighted = false,
+  onClick,
 }: {
   deployment: Deployment
   onAction: (action: "redeploy" | "cancel", deployment: Deployment) => void
@@ -477,21 +555,28 @@ function DeploymentCard({
     animate: boolean
   }
   highlighted?: boolean
+  onClick?: () => void
 }) {
+  const [expanded, setExpanded] = useState(false)
   const statusConfig = getStatusConfig(deployment.status)
   const StatusIcon = statusConfig.icon
+  const isError = deployment.status === "error"
 
   // Clean commit message (remove long descriptions)
-  const title = deployment.title.split("\n")[0].slice(0, 80)
+  const titleLine = deployment.title.split("\n")[0].slice(0, 80)
+  const fullDescription = deployment.title
 
   return (
     <div
       className={cn(
-        "bg-white rounded-xl border p-4 transition-all",
+        "bg-white rounded-xl border p-4 transition-all cursor-pointer",
         highlighted
           ? "border-[#0064FA] shadow-lg shadow-[#0064FA]/10"
-          : "border-gray-200 hover:border-gray-300"
+          : isError
+          ? "border-red-300 bg-red-50/30 hover:bg-red-50/50"
+          : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
       )}
+      onClick={onClick}
     >
       <div className="flex items-start gap-4">
         {/* Status Icon */}
@@ -511,13 +596,13 @@ function DeploymentCard({
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <span className="font-medium text-gray-900">
                   {deployment.appName}
                 </span>
                 <span
-                  className="text-xs px-2 py-0.5 rounded-full"
+                  className="text-xs px-2 py-0.5 rounded-full font-medium"
                   style={{
                     backgroundColor: statusConfig.bg,
                     color: statusConfig.color,
@@ -530,7 +615,7 @@ function DeploymentCard({
                 </span>
               </div>
               <p className="text-sm text-gray-600 truncate" title={deployment.title}>
-                {title || "Manual deployment"}
+                {titleLine || "Manual deployment"}
               </p>
               <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
                 <span>{deployment.projectName}</span>
@@ -545,10 +630,13 @@ function DeploymentCard({
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
               {deployment.status === "running" ? (
                 <button
-                  onClick={() => onAction("cancel", deployment)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onAction("cancel", deployment)
+                  }}
                   disabled={actionLoading === deployment.id}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
                 >
@@ -561,7 +649,10 @@ function DeploymentCard({
                 </button>
               ) : (
                 <button
-                  onClick={() => onAction("redeploy", deployment)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onAction("redeploy", deployment)
+                  }}
                   disabled={actionLoading === deployment.id}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[#0064FA] bg-[#E6F0FF] hover:bg-[#CCE0FF] rounded-lg transition-colors disabled:opacity-50"
                 >
@@ -577,6 +668,7 @@ function DeploymentCard({
                 href={`${deployment.serverUrl}`}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
                 className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 title="Ouvrir dans Dokploy"
               >
@@ -584,6 +676,38 @@ function DeploymentCard({
               </a>
             </div>
           </div>
+
+          {/* Error message banner */}
+          {isError && (
+            <div className="mt-3 p-3 bg-red-100 border border-red-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-red-800">
+                    Échec du déploiement
+                  </p>
+                  {deployment.errorMessage ? (
+                    <p className="text-sm text-red-700 mt-1">
+                      {deployment.errorMessage}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-red-600 mt-1">
+                      Consultez les logs pour plus de détails
+                    </p>
+                  )}
+                </div>
+                <a
+                  href={`${deployment.serverUrl}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-200 hover:bg-red-300 rounded transition-colors shrink-0"
+                >
+                  <FileText className="h-3 w-3" />
+                  Voir logs
+                </a>
+              </div>
+            </div>
+          )}
 
           {/* Progress bar for running */}
           {deployment.status === "running" && (
@@ -598,21 +722,310 @@ function DeploymentCard({
           )}
 
           {/* Footer info */}
-          <div className="flex items-center gap-4 mt-3 text-xs text-gray-400">
-            <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {formatTimeAgo(deployment.createdAt)}
+          <div className="flex items-center justify-between gap-4 mt-3">
+            <div className="flex items-center gap-4 text-xs text-gray-400">
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {formatTimeAgo(deployment.createdAt)}
+              </span>
+              {deployment.duration !== null && (
+                <span className="flex items-center gap-1">
+                  <Timer className="h-3 w-3" />
+                  {formatDuration(deployment.duration)}
+                </span>
+              )}
+            </div>
+            {fullDescription.includes("\n") && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+              >
+                {expanded ? (
+                  <>
+                    <ChevronUp className="h-3 w-3" />
+                    Moins
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-3 w-3" />
+                    Plus
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+
+          {/* Expanded details */}
+          {expanded && fullDescription.includes("\n") && (
+            <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <p className="text-xs font-medium text-gray-500 mb-2">Message de commit complet</p>
+              <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono">
+                {fullDescription}
+              </pre>
+              {deployment.description && (
+                <p className="text-xs text-gray-500 mt-2">
+                  {deployment.description}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DeploymentDetailModal({
+  deployment,
+  onClose,
+  onAction,
+  actionLoading,
+}: DeploymentDetailModalProps) {
+  if (!deployment) return null
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "-"
+    return new Date(dateStr).toLocaleString("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    })
+  }
+
+  const formatDuration = (seconds: number | null) => {
+    if (seconds === null) return "-"
+    if (seconds < 60) return `${seconds}s`
+    const minutes = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${minutes}m ${secs}s`
+  }
+
+  const isError = deployment.status === "error"
+  const isRunning = deployment.status === "running"
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div
+          className={cn(
+            "px-6 py-4 border-b flex items-center justify-between",
+            isError ? "bg-red-50 border-red-200" : "bg-gray-50 border-gray-200"
+          )}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className={cn(
+                "w-10 h-10 rounded-xl flex items-center justify-center",
+                isError ? "bg-red-100" : isRunning ? "bg-blue-100" : "bg-green-100"
+              )}
+            >
+              {isError ? (
+                <XCircle className="h-5 w-5 text-red-600" />
+              ) : isRunning ? (
+                <Loader2 className="h-5 w-5 text-blue-600 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+              )}
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                {deployment.appName}
+              </h2>
+              <p className="text-sm text-gray-500">
+                {deployment.projectName} • {deployment.server}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Status Badge */}
+          <div className="flex items-center gap-3">
+            <span
+              className={cn(
+                "px-3 py-1 rounded-full text-sm font-medium",
+                isError
+                  ? "bg-red-100 text-red-700"
+                  : isRunning
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-green-100 text-green-700"
+              )}
+            >
+              {isError ? "Échec" : isRunning ? "En cours" : "Terminé"}
             </span>
             {deployment.duration !== null && (
-              <span className="flex items-center gap-1">
-                <Timer className="h-3 w-3" />
-                {formatDuration(deployment.duration)}
+              <span className="text-sm text-gray-500 flex items-center gap-1">
+                <Timer className="h-4 w-4" />
+                Durée: {formatDuration(deployment.duration)}
               </span>
             )}
-            {deployment.errorMessage && (
-              <span className="text-red-500 truncate flex-1">
-                {deployment.errorMessage}
-              </span>
+          </div>
+
+          {/* Error Section - Highlighted for errors */}
+          {isError && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-red-800 mb-2">
+                    Erreur de déploiement
+                  </h3>
+                  {deployment.errorMessage ? (
+                    <div className="bg-red-100 p-3 rounded-lg">
+                      <pre className="text-sm text-red-900 whitespace-pre-wrap font-mono overflow-x-auto">
+                        {deployment.errorMessage}
+                      </pre>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-red-700">
+                      Aucun message d&apos;erreur disponible. Consultez les logs pour plus de détails.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Commit Message */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">
+              Message de commit
+            </h3>
+            <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+              <pre className="text-sm text-gray-800 whitespace-pre-wrap font-mono">
+                {deployment.title || "Manual deployment"}
+              </pre>
+              {deployment.description && (
+                <p className="text-sm text-gray-500 mt-2 pt-2 border-t border-gray-200">
+                  {deployment.description}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Details Grid */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                Serveur
+              </h4>
+              <p className="text-sm text-gray-900">{deployment.server}</p>
+            </div>
+            <div>
+              <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                Projet
+              </h4>
+              <p className="text-sm text-gray-900">{deployment.projectName}</p>
+            </div>
+            <div>
+              <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                Type
+              </h4>
+              <p className="text-sm text-gray-900 capitalize">{deployment.appType}</p>
+            </div>
+            {deployment.repository && (
+              <div>
+                <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                  Repository
+                </h4>
+                <p className="text-sm text-gray-900 flex items-center gap-1">
+                  <GitBranch className="h-3.5 w-3.5" />
+                  {deployment.owner}/{deployment.repository}
+                  {deployment.branch && (
+                    <span className="text-gray-500">:{deployment.branch}</span>
+                  )}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Timestamps */}
+          <div className="border-t border-gray-200 pt-4">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Chronologie</h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Créé le</span>
+                <span className="text-gray-900 font-mono">
+                  {formatDate(deployment.createdAt)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Démarré le</span>
+                <span className="text-gray-900 font-mono">
+                  {formatDate(deployment.startedAt)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Terminé le</span>
+                <span className="text-gray-900 font-mono">
+                  {formatDate(deployment.finishedAt)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between gap-4">
+          <a
+            href={deployment.serverUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Ouvrir dans Dokploy
+          </a>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
+            >
+              Fermer
+            </button>
+            {isRunning ? (
+              <button
+                onClick={() => onAction("cancel", deployment)}
+                disabled={actionLoading === deployment.id}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {actionLoading === deployment.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Square className="h-4 w-4" />
+                )}
+                Annuler le déploiement
+              </button>
+            ) : (
+              <button
+                onClick={() => onAction("redeploy", deployment)}
+                disabled={actionLoading === deployment.id}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#0064FA] hover:bg-[#0052CC] rounded-lg transition-colors disabled:opacity-50"
+              >
+                {actionLoading === deployment.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+                Redéployer
+              </button>
             )}
           </div>
         </div>
