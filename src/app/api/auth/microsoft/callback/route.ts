@@ -85,7 +85,7 @@ export async function GET(request: Request) {
           code,
           redirect_uri: redirectUri,
           grant_type: "authorization_code",
-          scope: "openid profile email User.Read",
+          scope: "openid profile email User.Read GroupMember.Read.All",
         }),
       }
     )

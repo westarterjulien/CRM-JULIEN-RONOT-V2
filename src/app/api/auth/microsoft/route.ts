@@ -50,7 +50,7 @@ export async function GET(request: Request) {
   authUrl.searchParams.set("client_id", settings.clientId)
   authUrl.searchParams.set("response_type", "code")
   authUrl.searchParams.set("redirect_uri", redirectUri)
-  authUrl.searchParams.set("scope", "openid profile email User.Read")
+  authUrl.searchParams.set("scope", "openid profile email User.Read GroupMember.Read.All")
   authUrl.searchParams.set("response_mode", "query")
   authUrl.searchParams.set("state", Buffer.from(JSON.stringify({ callbackUrl })).toString("base64"))
 
