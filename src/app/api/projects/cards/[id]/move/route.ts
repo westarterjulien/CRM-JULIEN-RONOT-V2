@@ -2,6 +2,20 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
+// Helper to serialize BigInt values
+function serializeCard(card: any) {
+  return {
+    ...card,
+    id: card.id.toString(),
+    columnId: card.columnId.toString(),
+    clientId: card.clientId?.toString() || null,
+    client: card.client ? {
+      ...card.client,
+      id: card.client.id.toString(),
+    } : null,
+  }
+}
+
 // PUT: Move a card to a different column or position
 export async function PUT(
   request: Request,
@@ -96,7 +110,7 @@ export async function PUT(
       },
     })
 
-    return NextResponse.json(card)
+    return NextResponse.json(serializeCard(card))
   } catch (error) {
     console.error("Error moving card:", error)
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })

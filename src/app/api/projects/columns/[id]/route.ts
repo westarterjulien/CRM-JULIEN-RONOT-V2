@@ -2,6 +2,21 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
+// Helper to serialize BigInt values
+function serializeColumn(col: any) {
+  return {
+    ...col,
+    id: col.id.toString(),
+    projectId: col.projectId.toString(),
+    cards: col.cards?.map((card: any) => ({
+      ...card,
+      id: card.id.toString(),
+      columnId: card.columnId.toString(),
+      clientId: card.clientId?.toString() || null,
+    })) || [],
+  }
+}
+
 // PUT: Update a column
 export async function PUT(
   request: Request,
@@ -29,7 +44,7 @@ export async function PUT(
       },
     })
 
-    return NextResponse.json(column)
+    return NextResponse.json(serializeColumn(column))
   } catch (error) {
     console.error("Error updating column:", error)
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })

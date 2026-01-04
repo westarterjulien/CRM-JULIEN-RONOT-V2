@@ -2,6 +2,35 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
+// Helper to serialize BigInt values to strings for JSON
+function serializeProject(project: any) {
+  return {
+    ...project,
+    id: project.id.toString(),
+    tenant_id: project.tenant_id?.toString(),
+    clientId: project.clientId?.toString() || null,
+    client: project.client ? {
+      ...project.client,
+      id: project.client.id.toString(),
+    } : null,
+    columns: project.columns?.map((col: any) => ({
+      ...col,
+      id: col.id.toString(),
+      projectId: col.projectId.toString(),
+      cards: col.cards?.map((card: any) => ({
+        ...card,
+        id: card.id.toString(),
+        columnId: card.columnId.toString(),
+        clientId: card.clientId?.toString() || null,
+        client: card.client ? {
+          ...card.client,
+          id: card.client.id.toString(),
+        } : null,
+      })) || [],
+    })) || [],
+  }
+}
+
 // GET: Get a single project with all columns and cards
 export async function GET(
   request: Request,
@@ -41,7 +70,7 @@ export async function GET(
       return NextResponse.json({ error: "Projet non trouve" }, { status: 404 })
     }
 
-    return NextResponse.json(project)
+    return NextResponse.json(serializeProject(project))
   } catch (error) {
     console.error("Error fetching project:", error)
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
@@ -87,7 +116,7 @@ export async function PUT(
       },
     })
 
-    return NextResponse.json(project)
+    return NextResponse.json(serializeProject(project))
   } catch (error) {
     console.error("Error updating project:", error)
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })

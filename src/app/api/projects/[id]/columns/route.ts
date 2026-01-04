@@ -2,6 +2,31 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
+// Helper to serialize BigInt values
+function serializeColumn(col: any) {
+  return {
+    ...col,
+    id: col.id.toString(),
+    projectId: col.projectId.toString(),
+    cards: col.cards?.map((card: any) => ({
+      ...card,
+      id: card.id.toString(),
+      columnId: card.columnId.toString(),
+      clientId: card.clientId?.toString() || null,
+    })) || [],
+  }
+}
+
+function serializeProject(project: any) {
+  return {
+    ...project,
+    id: project.id.toString(),
+    tenant_id: project.tenant_id?.toString(),
+    clientId: project.clientId?.toString() || null,
+    columns: project.columns?.map((col: any) => serializeColumn(col)) || [],
+  }
+}
+
 // POST: Create a new column in a project
 export async function POST(
   request: Request,
@@ -40,7 +65,7 @@ export async function POST(
       },
     })
 
-    return NextResponse.json(column, { status: 201 })
+    return NextResponse.json(serializeColumn(column), { status: 201 })
   } catch (error) {
     console.error("Error creating column:", error)
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
@@ -91,7 +116,7 @@ export async function PUT(
       },
     })
 
-    return NextResponse.json(project)
+    return NextResponse.json(project ? serializeProject(project) : null)
   } catch (error) {
     console.error("Error reordering columns:", error)
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })

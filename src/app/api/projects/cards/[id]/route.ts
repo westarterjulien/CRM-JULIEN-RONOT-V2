@@ -2,6 +2,29 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
+// Helper to serialize BigInt values
+function serializeCard(card: any) {
+  return {
+    ...card,
+    id: card.id.toString(),
+    columnId: card.columnId.toString(),
+    clientId: card.clientId?.toString() || null,
+    client: card.client ? {
+      ...card.client,
+      id: card.client.id.toString(),
+    } : null,
+    column: card.column ? {
+      ...card.column,
+      id: card.column.id.toString(),
+      projectId: card.column.projectId.toString(),
+      project: card.column.project ? {
+        ...card.column.project,
+        id: card.column.project.id.toString(),
+      } : null,
+    } : null,
+  }
+}
+
 // GET: Get a single card
 export async function GET(
   request: Request,
@@ -35,7 +58,7 @@ export async function GET(
       return NextResponse.json({ error: "Carte non trouvee" }, { status: 404 })
     }
 
-    return NextResponse.json(card)
+    return NextResponse.json(serializeCard(card))
   } catch (error) {
     console.error("Error fetching card:", error)
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
@@ -94,7 +117,7 @@ export async function PUT(
       },
     })
 
-    return NextResponse.json(card)
+    return NextResponse.json(serializeCard(card))
   } catch (error) {
     console.error("Error updating card:", error)
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })

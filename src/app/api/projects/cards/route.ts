@@ -2,6 +2,20 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
+// Helper to serialize BigInt values
+function serializeCard(card: any) {
+  return {
+    ...card,
+    id: card.id.toString(),
+    columnId: card.columnId.toString(),
+    clientId: card.clientId?.toString() || null,
+    client: card.client ? {
+      ...card.client,
+      id: card.client.id.toString(),
+    } : null,
+  }
+}
+
 // POST: Create a new card
 export async function POST(request: Request) {
   try {
@@ -57,7 +71,7 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(card, { status: 201 })
+    return NextResponse.json(serializeCard(card), { status: 201 })
   } catch (error) {
     console.error("Error creating card:", error)
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })

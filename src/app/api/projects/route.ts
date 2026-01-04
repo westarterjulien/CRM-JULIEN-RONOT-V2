@@ -2,6 +2,35 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
+// Helper to serialize BigInt values to strings for JSON
+function serializeProject(project: any) {
+  return {
+    ...project,
+    id: project.id.toString(),
+    tenant_id: project.tenant_id?.toString(),
+    clientId: project.clientId?.toString() || null,
+    client: project.client ? {
+      ...project.client,
+      id: project.client.id.toString(),
+    } : null,
+    columns: project.columns?.map((col: any) => ({
+      ...col,
+      id: col.id.toString(),
+      projectId: col.projectId.toString(),
+      cards: col.cards?.map((card: any) => ({
+        ...card,
+        id: card.id.toString(),
+        columnId: card.columnId.toString(),
+        clientId: card.clientId?.toString() || null,
+        client: card.client ? {
+          ...card.client,
+          id: card.client.id.toString(),
+        } : null,
+      })) || [],
+    })) || [],
+  }
+}
+
 // GET: List all projects
 export async function GET(request: Request) {
   try {
@@ -41,7 +70,7 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" },
     })
 
-    return NextResponse.json(projects)
+    return NextResponse.json(projects.map(serializeProject))
   } catch (error) {
     console.error("Error fetching projects:", error)
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
@@ -100,7 +129,7 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(project, { status: 201 })
+    return NextResponse.json(serializeProject(project), { status: 201 })
   } catch (error) {
     console.error("Error creating project:", error)
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
