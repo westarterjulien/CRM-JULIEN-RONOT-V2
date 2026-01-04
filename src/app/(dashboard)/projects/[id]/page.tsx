@@ -105,8 +105,11 @@ export default function ProjectBoardPage({ params }: { params: Promise<{ id: str
   const [editDescription, setEditDescription] = useState("")
   const [editColor, setEditColor] = useState("")
   const [editClientId, setEditClientId] = useState<string>("")
+  const [editClientName, setEditClientName] = useState<string>("")
   const [clients, setClients] = useState<{id: string; companyName: string}[]>([])
   const [savingProject, setSavingProject] = useState(false)
+  const [clientSearch, setClientSearch] = useState("")
+  const [showClientDropdown, setShowClientDropdown] = useState(false)
 
   useEffect(() => {
     fetchProject()
@@ -157,8 +160,27 @@ export default function ProjectBoardPage({ params }: { params: Promise<{ id: str
     setEditDescription(project.description || "")
     setEditColor(project.color)
     setEditClientId(project.client?.id || "")
+    setEditClientName(project.client?.companyName || "")
+    setClientSearch("")
+    setShowClientDropdown(false)
     fetchClients()
     setShowEditModal(true)
+  }
+
+  const filteredClients = clients.filter(c =>
+    c.companyName.toLowerCase().includes(clientSearch.toLowerCase())
+  )
+
+  const selectClient = (client: {id: string; companyName: string} | null) => {
+    if (client) {
+      setEditClientId(client.id)
+      setEditClientName(client.companyName)
+    } else {
+      setEditClientId("")
+      setEditClientName("")
+    }
+    setClientSearch("")
+    setShowClientDropdown(false)
   }
 
   const saveProject = async () => {
@@ -1053,20 +1075,76 @@ export default function ProjectBoardPage({ params }: { params: Promise<{ id: str
                 />
               </div>
 
-              <div>
+              <div className="relative">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
-                <select
-                  value={editClientId}
-                  onChange={(e) => setEditClientId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#0064FA] focus:border-transparent outline-none"
-                >
-                  <option value="">Aucun client</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.companyName}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <div
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg flex items-center justify-between cursor-pointer hover:border-gray-300"
+                    onClick={() => setShowClientDropdown(!showClientDropdown)}
+                  >
+                    <span className={editClientName ? "text-gray-900" : "text-gray-400"}>
+                      {editClientName || "Aucun client"}
+                    </span>
+                    <Users className="h-4 w-4 text-gray-400" />
+                  </div>
+
+                  {showClientDropdown && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-64 overflow-hidden">
+                      <div className="p-2 border-b border-gray-100">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <input
+                            type="text"
+                            value={clientSearch}
+                            onChange={(e) => setClientSearch(e.target.value)}
+                            placeholder="Rechercher un client..."
+                            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#0064FA] focus:border-transparent outline-none"
+                            autoFocus
+                          />
+                        </div>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto">
+                        <button
+                          onClick={() => selectClient(null)}
+                          className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${
+                            !editClientId ? "bg-[#0064FA]/5 text-[#0064FA]" : "text-gray-600"
+                          }`}
+                        >
+                          Aucun client
+                        </button>
+                        {filteredClients.length === 0 ? (
+                          <div className="px-3 py-4 text-sm text-gray-400 text-center">
+                            Aucun client trouve
+                          </div>
+                        ) : (
+                          filteredClients.map((client) => (
+                            <button
+                              key={client.id}
+                              onClick={() => selectClient(client)}
+                              className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 ${
+                                editClientId === client.id ? "bg-[#0064FA]/5 text-[#0064FA]" : "text-gray-700"
+                              }`}
+                            >
+                              <div className="w-6 h-6 rounded-full bg-[#0064FA] flex items-center justify-center text-white text-xs font-medium">
+                                {client.companyName.charAt(0).toUpperCase()}
+                              </div>
+                              {client.companyName}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {editClientId && (
+                  <button
+                    onClick={() => selectClient(null)}
+                    className="absolute right-10 top-[34px] text-gray-400 hover:text-gray-600"
+                    title="Retirer le client"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
 
               <div>
