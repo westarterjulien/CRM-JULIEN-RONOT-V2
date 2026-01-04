@@ -3,23 +3,6 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import {
   AlertTriangle,
   Clock,
@@ -31,9 +14,10 @@ import {
   ArrowLeft,
   ExternalLink,
   Loader2,
-  Send,
+  Building2,
 } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { StyledSelect } from "@/components/ui/styled-select"
 
 interface Domain {
   id: string
@@ -58,6 +42,14 @@ interface RenewalData {
     totalRenewalValue: number
   }
 }
+
+const daysOptions = [
+  { value: "7", label: "7 prochains jours" },
+  { value: "14", label: "14 prochains jours" },
+  { value: "30", label: "30 prochains jours" },
+  { value: "60", label: "60 prochains jours" },
+  { value: "90", label: "90 prochains jours" },
+]
 
 export default function DomainRenewalsPage() {
   const router = useRouter()
@@ -95,14 +87,14 @@ export default function DomainRenewalsPage() {
 
       if (!res.ok) {
         const error = await res.json()
-        throw new Error(error.error || "Erreur lors de la creation")
+        throw new Error(error.error || "Erreur lors de la création")
       }
 
       const result = await res.json()
       router.push(`/invoices/${result.invoice.id}`)
     } catch (error) {
       console.error(error)
-      alert(error instanceof Error ? error.message : "Erreur lors de la creation de la facture")
+      alert(error instanceof Error ? error.message : "Erreur lors de la création de la facture")
     } finally {
       setCreatingInvoice(null)
     }
@@ -111,7 +103,10 @@ export default function DomainRenewalsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div
+          className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin"
+          style={{ borderColor: "#F0783C", borderTopColor: "transparent" }}
+        />
       </div>
     )
   }
@@ -121,100 +116,92 @@ export default function DomainRenewalsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 rounded-3xl p-6 lg:p-8 shadow-2xl">
-        <div className="absolute inset-0 opacity-10">
-          <div
-            className="absolute inset-0"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-            }}
-          ></div>
-        </div>
-
-        <div className="relative">
-          <Button
-            variant="ghost"
-            size="sm"
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <button
             onClick={() => router.push("/domains")}
-            className="text-white/80 hover:text-white hover:bg-white/10 mb-4"
+            className="p-2 rounded-xl transition-colors hover:bg-[#F5F5F7]"
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Retour aux domaines
-          </Button>
-
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-white flex items-center gap-3">
-                <AlertTriangle className="h-8 w-8" />
-                Alertes de renouvellement
-              </h1>
-              <p className="text-white/80 mt-2">
-                Domaines à renouveler et factures à envoyer
-              </p>
-            </div>
-
-            <Select value={daysFilter} onValueChange={setDaysFilter}>
-              <SelectTrigger className="w-[180px] bg-white/10 border-white/20 text-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7">7 prochains jours</SelectItem>
-                <SelectItem value="14">14 prochains jours</SelectItem>
-                <SelectItem value="30">30 prochains jours</SelectItem>
-                <SelectItem value="60">60 prochains jours</SelectItem>
-                <SelectItem value="90">90 prochains jours</SelectItem>
-              </SelectContent>
-            </Select>
+            <ArrowLeft className="h-5 w-5" style={{ color: "#666666" }} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-semibold flex items-center gap-3" style={{ color: "#111111" }}>
+              <AlertTriangle className="h-6 w-6" style={{ color: "#F0783C" }} />
+              Alertes de renouvellement
+            </h1>
+            <p className="text-sm mt-1" style={{ color: "#666666" }}>
+              Domaines à renouveler et factures à envoyer
+            </p>
           </div>
+        </div>
+        <div className="w-48">
+          <StyledSelect
+            value={daysFilter}
+            onChange={setDaysFilter}
+            options={daysOptions}
+            placeholder="Période"
+          />
         </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl p-5 border border-white/20 dark:border-gray-700/50 shadow-lg">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Clock className="w-6 h-6 text-white" />
-            </div>
+        <div
+          className="rounded-2xl p-5"
+          style={{ background: "#FFFFFF", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}
+        >
+          <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Expirent bientot
-              </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              <p className="text-sm" style={{ color: "#666666" }}>Expirent bientôt</p>
+              <p className="text-3xl font-semibold mt-1" style={{ color: "#F0783C" }}>
                 {data.stats.totalExpiringSoon}
               </p>
             </div>
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center"
+              style={{ background: "#FEF3CD" }}
+            >
+              <Clock className="w-6 h-6" style={{ color: "#F0783C" }} />
+            </div>
           </div>
         </div>
 
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl p-5 border border-white/20 dark:border-gray-700/50 shadow-lg">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-rose-600 rounded-xl flex items-center justify-center shadow-lg">
-              <AlertTriangle className="w-6 h-6 text-white" />
-            </div>
+        <div
+          className="rounded-2xl p-5"
+          style={{ background: "#FFFFFF", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}
+        >
+          <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Expires
-              </p>
-              <p className="text-2xl font-bold text-red-600">
+              <p className="text-sm" style={{ color: "#666666" }}>Expirés</p>
+              <p className="text-3xl font-semibold mt-1" style={{ color: "#F04B69" }}>
                 {data.stats.totalExpired}
               </p>
             </div>
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center"
+              style={{ background: "#FEE2E8" }}
+            >
+              <AlertTriangle className="w-6 h-6" style={{ color: "#F04B69" }} />
+            </div>
           </div>
         </div>
 
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl p-5 border border-white/20 dark:border-gray-700/50 shadow-lg">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Euro className="w-6 h-6 text-white" />
-            </div>
+        <div
+          className="rounded-2xl p-5"
+          style={{ background: "#FFFFFF", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}
+        >
+          <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Valeur renouvellements
-              </p>
-              <p className="text-2xl font-bold text-emerald-600">
+              <p className="text-sm" style={{ color: "#666666" }}>Valeur renouvellements</p>
+              <p className="text-3xl font-semibold mt-1" style={{ color: "#28B95F" }}>
                 {formatCurrency(data.stats.totalRenewalValue)}
               </p>
+            </div>
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center"
+              style={{ background: "#D4EDDA" }}
+            >
+              <Euro className="w-6 h-6" style={{ color: "#28B95F" }} />
             </div>
           </div>
         </div>
@@ -222,231 +209,302 @@ export default function DomainRenewalsPage() {
 
       {/* Expired Domains */}
       {data.expired.length > 0 && (
-        <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl p-6 border border-red-200 dark:border-red-900/50">
-          <h2 className="text-lg font-semibold text-red-800 dark:text-red-400 flex items-center gap-2 mb-4">
-            <AlertTriangle className="h-5 w-5" />
-            Domaines expires ({data.expired.length})
-          </h2>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Domaine</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Expire depuis</TableHead>
-                  <TableHead>Prix</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.expired.map((domain) => (
-                  <TableRow key={domain.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Globe className="h-4 w-4 text-red-500" />
+        <div
+          className="rounded-2xl overflow-hidden"
+          style={{ background: "#FEE2E8", border: "1px solid #F04B69" }}
+        >
+          <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: "1px solid rgba(240,75,105,0.2)" }}>
+            <AlertTriangle className="h-5 w-5" style={{ color: "#F04B69" }} />
+            <h2 className="text-base font-semibold" style={{ color: "#F04B69" }}>
+              Domaines expirés ({data.expired.length})
+            </h2>
+          </div>
+          <div className="overflow-x-auto" style={{ background: "#FFFFFF" }}>
+            <table className="w-full">
+              <thead>
+                <tr style={{ background: "#FEF5F7" }}>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#666666" }}>
+                    Domaine
+                  </th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#666666" }}>
+                    Client
+                  </th>
+                  <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wider" style={{ color: "#666666" }}>
+                    Expiré depuis
+                  </th>
+                  <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wider" style={{ color: "#666666" }}>
+                    Prix
+                  </th>
+                  <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wider" style={{ color: "#666666" }}>
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.expired.map((domain, index) => (
+                  <tr
+                    key={domain.id}
+                    className="transition-colors hover:bg-[#FEF5F7]"
+                    style={{ borderTop: index > 0 ? "1px solid #EEEEEE" : undefined }}
+                  >
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center"
+                          style={{ background: "#FEE2E8" }}
+                        >
+                          <Globe className="h-5 w-5" style={{ color: "#F04B69" }} />
+                        </div>
                         <Link
                           href={`/domains/${domain.id}`}
-                          className="font-medium hover:text-blue-600"
+                          className="text-sm font-medium hover:underline"
+                          style={{ color: "#111111" }}
                         >
                           {domain.domain}
                         </Link>
                       </div>
-                    </TableCell>
-                    <TableCell>
+                    </td>
+                    <td className="px-5 py-4">
                       {domain.client ? (
                         <Link
                           href={`/clients/${domain.client.id}`}
-                          className="hover:text-blue-600"
+                          className="text-sm hover:underline flex items-center gap-1"
+                          style={{ color: "#0064FA" }}
                         >
+                          <Building2 className="h-3 w-3" />
                           {domain.client.companyName}
                         </Link>
                       ) : (
-                        <span className="text-gray-400">-</span>
+                        <span className="text-sm" style={{ color: "#CCCCCC" }}>-</span>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-red-600 font-medium">
-                        {domain.daysUntilExpiration
-                          ? `${Math.abs(domain.daysUntilExpiration)} jours`
-                          : "-"}
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      <span
+                        className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                        style={{ background: "#FEE2E8", color: "#F04B69" }}
+                      >
+                        {domain.daysUntilExpiration ? `${Math.abs(domain.daysUntilExpiration)}j` : "-"}
                       </span>
-                    </TableCell>
-                    <TableCell className="font-semibold">
-                      {domain.renewalPrice
-                        ? formatCurrency(domain.renewalPrice)
-                        : "-"}
-                    </TableCell>
-                    <TableCell>
-                      {domain.client && (
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="rounded-lg"
-                          onClick={() => createInvoice(domain.id)}
-                          disabled={creatingInvoice === domain.id}
-                        >
-                          {creatingInvoice === domain.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>
-                              <FileText className="h-4 w-4 mr-2" />
-                              Facturer
-                            </>
-                          )}
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      <span className="text-sm font-semibold" style={{ color: "#111111" }}>
+                        {domain.renewalPrice ? formatCurrency(domain.renewalPrice) : "-"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center justify-center gap-2">
+                        {domain.client && (
+                          <button
+                            onClick={() => createInvoice(domain.id)}
+                            disabled={creatingInvoice === domain.id}
+                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-white transition-all disabled:opacity-50"
+                            style={{ background: "#F04B69" }}
+                          >
+                            {creatingInvoice === domain.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <FileText className="h-4 w-4" />
+                                Facturer
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
                 ))}
-              </TableBody>
-            </Table>
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
       {/* Expiring Soon */}
-      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 dark:border-gray-700/50">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <Clock className="h-5 w-5 text-amber-500" />
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{ background: "#FFFFFF", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}
+      >
+        <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: "1px solid #EEEEEE" }}>
+          <Clock className="h-5 w-5" style={{ color: "#F0783C" }} />
+          <h2 className="text-base font-semibold" style={{ color: "#111111" }}>
             Expirent dans les {daysFilter} prochains jours ({data.expiringSoon.length})
           </h2>
         </div>
 
         {data.expiringSoon.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="h-8 w-8 text-emerald-500" />
+          <div className="flex flex-col items-center justify-center py-16">
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+              style={{ background: "#D4EDDA" }}
+            >
+              <CheckCircle className="w-8 h-8" style={{ color: "#28B95F" }} />
             </div>
-            <p className="text-gray-500 dark:text-gray-400 font-medium">
-              Aucun domaine à renouveler dans cette période
+            <p className="text-base font-medium" style={{ color: "#666666" }}>
+              Aucun domaine à renouveler
+            </p>
+            <p className="text-sm mt-1" style={{ color: "#999999" }}>
+              Tous les domaines sont à jour pour cette période
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>Domaine</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Expiration</TableHead>
-                  <TableHead>Jours restants</TableHead>
-                  <TableHead>Auto-renouvellement</TableHead>
-                  <TableHead>Prix</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.expiringSoon.map((domain) => {
-                  const isUrgent =
-                    domain.daysUntilExpiration !== null &&
-                    domain.daysUntilExpiration <= 7
-                  const isWarning =
-                    domain.daysUntilExpiration !== null &&
-                    domain.daysUntilExpiration <= 14
+            <table className="w-full">
+              <thead>
+                <tr style={{ background: "#FAFAFA" }}>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#666666" }}>
+                    Domaine
+                  </th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#666666" }}>
+                    Client
+                  </th>
+                  <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wider" style={{ color: "#666666" }}>
+                    Expiration
+                  </th>
+                  <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wider" style={{ color: "#666666" }}>
+                    Jours
+                  </th>
+                  <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wider" style={{ color: "#666666" }}>
+                    Auto-renouv.
+                  </th>
+                  <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wider" style={{ color: "#666666" }}>
+                    Prix
+                  </th>
+                  <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wider" style={{ color: "#666666" }}>
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.expiringSoon.map((domain, index) => {
+                  const isUrgent = domain.daysUntilExpiration !== null && domain.daysUntilExpiration <= 7
+                  const isWarning = domain.daysUntilExpiration !== null && domain.daysUntilExpiration <= 14
 
                   return (
-                    <TableRow key={domain.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Globe
-                            className={`h-4 w-4 ${
-                              isUrgent
-                                ? "text-red-500"
-                                : isWarning
-                                ? "text-amber-500"
-                                : "text-blue-500"
-                            }`}
-                          />
+                    <tr
+                      key={domain.id}
+                      className="transition-colors hover:bg-[#F9F9FB]"
+                      style={{ borderTop: index > 0 ? "1px solid #EEEEEE" : undefined }}
+                    >
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-10 h-10 rounded-xl flex items-center justify-center"
+                            style={{
+                              background: isUrgent ? "#FEE2E8" : isWarning ? "#FEF3CD" : "#E3F2FD",
+                            }}
+                          >
+                            <Globe
+                              className="h-5 w-5"
+                              style={{
+                                color: isUrgent ? "#F04B69" : isWarning ? "#F0783C" : "#0064FA",
+                              }}
+                            />
+                          </div>
                           <Link
                             href={`/domains/${domain.id}`}
-                            className="font-medium hover:text-blue-600"
+                            className="text-sm font-medium hover:underline"
+                            style={{ color: "#111111" }}
                           >
                             {domain.domain}
                           </Link>
                         </div>
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="px-5 py-4">
                         {domain.client ? (
                           <Link
                             href={`/clients/${domain.client.id}`}
-                            className="hover:text-blue-600"
+                            className="text-sm hover:underline flex items-center gap-1"
+                            style={{ color: "#0064FA" }}
                           >
+                            <Building2 className="h-3 w-3" />
                             {domain.client.companyName}
                           </Link>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          <span className="text-sm" style={{ color: "#CCCCCC" }}>-</span>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        {domain.expirationDate
-                          ? formatDate(domain.expirationDate)
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={
-                            isUrgent
-                              ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                              : isWarning
-                              ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-                              : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-                          }
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <span className="text-sm" style={{ color: "#111111" }}>
+                          {domain.expirationDate ? formatDate(domain.expirationDate) : "-"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <span
+                          className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                          style={{
+                            background: isUrgent ? "#FEE2E8" : isWarning ? "#FEF3CD" : "#D4EDDA",
+                            color: isUrgent ? "#F04B69" : isWarning ? "#F0783C" : "#28B95F",
+                          }}
                         >
                           {domain.daysUntilExpiration}j
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-center">
                         {domain.autoRenew ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+                          <span
+                            className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                            style={{ background: "#D4EDDA", color: "#28B95F" }}
+                          >
                             <RefreshCw className="w-3 h-3 mr-1" />
                             Actif
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                          <span
+                            className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                            style={{ background: "#F5F5F7", color: "#666666" }}
+                          >
                             Inactif
                           </span>
                         )}
-                      </TableCell>
-                      <TableCell className="font-semibold">
-                        {domain.renewalPrice
-                          ? formatCurrency(domain.renewalPrice)
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <span className="text-sm font-semibold" style={{ color: "#111111" }}>
+                          {domain.renewalPrice ? formatCurrency(domain.renewalPrice) : "-"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center justify-center gap-2">
                           {domain.client && (
-                            <Button
-                              size="sm"
-                              className="rounded-lg bg-blue-600 hover:bg-blue-700"
+                            <button
                               onClick={() => createInvoice(domain.id)}
                               disabled={creatingInvoice === domain.id}
+                              className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-white transition-all disabled:opacity-50"
+                              style={{ background: "#0064FA" }}
                             >
                               {creatingInvoice === domain.id ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                               ) : (
                                 <>
-                                  <FileText className="h-4 w-4 mr-2" />
+                                  <FileText className="h-4 w-4" />
                                   Facturer
                                 </>
                               )}
-                            </Button>
+                            </button>
                           )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="rounded-lg"
+                          <button
                             onClick={() => router.push(`/domains/${domain.id}`)}
+                            className="p-2 rounded-lg transition-colors hover:bg-[#F5F5F7]"
+                            title="Voir"
                           >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
+                            <ExternalLink className="w-4 h-4" style={{ color: "#666666" }} />
+                          </button>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   )
                 })}
-              </TableBody>
-            </Table>
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Footer */}
+        {data.expiringSoon.length > 0 && (
+          <div className="px-5 py-4" style={{ borderTop: "1px solid #EEEEEE" }}>
+            <p className="text-sm" style={{ color: "#666666" }}>
+              {data.expiringSoon.length} domaine{data.expiringSoon.length > 1 ? "s" : ""} à renouveler
+            </p>
           </div>
         )}
       </div>
