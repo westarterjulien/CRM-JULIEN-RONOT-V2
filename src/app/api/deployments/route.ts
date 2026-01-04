@@ -198,18 +198,8 @@ export async function GET(request: NextRequest) {
     const allAppsResults = await Promise.all(allAppsPromises)
     const allApps = allAppsResults.flat()
 
-    // Get recent deployments for apps with running or recent activity
-    // For efficiency, we'll get deployments for apps that are currently deploying or recently active
-    const runningApps = allApps.filter(
-      (a) => a.app.applicationStatus === "running" || a.app.applicationStatus === "error"
-    )
-
-    // Also get a sample of other apps for recent history
-    const otherApps = allApps
-      .filter((a) => a.app.applicationStatus === "done" || a.app.applicationStatus === "idle")
-      .slice(0, 20)
-
-    const appsToCheck = [...runningApps, ...otherApps]
+    // Get deployments for ALL apps (no filtering/sampling)
+    const appsToCheck = allApps
 
     // Fetch deployments in parallel (batch of 10 at a time)
     const allDeployments: Array<{
@@ -218,7 +208,7 @@ export async function GET(request: NextRequest) {
       serverUrl: string
     }> = []
 
-    const batchSize = 10
+    const batchSize = 20
     for (let i = 0; i < appsToCheck.length; i += batchSize) {
       const batch = appsToCheck.slice(i, i + batchSize)
       const batchResults = await Promise.all(
