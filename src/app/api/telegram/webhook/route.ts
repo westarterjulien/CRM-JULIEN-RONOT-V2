@@ -1,14 +1,48 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
-// Configuration
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || ""
-const ALLOWED_USERS = (process.env.TELEGRAM_ALLOWED_USERS || "")
-  .split(",")
-  .map((id) => parseInt(id.trim()))
-  .filter((id) => !isNaN(id) && id > 0)
+// Default configuration (fallback to env vars)
 const DEFAULT_TENANT_ID = BigInt(process.env.CRM_TENANT_ID || "1")
 const DEFAULT_USER_ID = BigInt(process.env.CRM_USER_ID || "1")
+
+// Cache for settings (refreshed every 5 minutes)
+let cachedSettings: { token: string; allowedUsers: number[]; lastFetch: number } | null = null
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
+async function getTelegramSettings() {
+  const now = Date.now()
+  if (cachedSettings && now - cachedSettings.lastFetch < CACHE_TTL) {
+    return cachedSettings
+  }
+
+  const tenant = await prisma.tenants.findFirst({ where: { id: DEFAULT_TENANT_ID } })
+  let token = process.env.TELEGRAM_BOT_TOKEN || ""
+  let allowedUsers: number[] = []
+
+  if (tenant?.settings) {
+    try {
+      const settings = JSON.parse(tenant.settings)
+      if (settings.telegramBotToken) token = settings.telegramBotToken
+      if (settings.telegramAllowedUsers) {
+        allowedUsers = settings.telegramAllowedUsers
+          .split(",")
+          .map((id: string) => parseInt(id.trim()))
+          .filter((id: number) => !isNaN(id) && id > 0)
+      }
+    } catch { /* ignore parse errors */ }
+  }
+
+  // Fallback to env vars for allowed users
+  if (allowedUsers.length === 0 && process.env.TELEGRAM_ALLOWED_USERS) {
+    allowedUsers = process.env.TELEGRAM_ALLOWED_USERS
+      .split(",")
+      .map((id) => parseInt(id.trim()))
+      .filter((id) => !isNaN(id) && id > 0)
+  }
+
+  cachedSettings = { token, allowedUsers, lastFetch: now }
+  return cachedSettings
+}
 
 interface TelegramUpdate {
   update_id: number
@@ -28,8 +62,8 @@ interface TelegramUpdate {
   }
 }
 
-async function sendMessage(chatId: number, text: string, options: Record<string, unknown> = {}) {
-  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+async function sendMessage(botToken: string, chatId: number, text: string, options: Record<string, unknown> = {}) {
+  await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -41,8 +75,8 @@ async function sendMessage(chatId: number, text: string, options: Record<string,
   })
 }
 
-async function answerCallback(callbackQueryId: string, text?: string) {
-  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+async function answerCallback(botToken: string, callbackQueryId: string, text?: string) {
+  await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -82,12 +116,13 @@ function parseDate(input: string): Date {
   return now
 }
 
-async function handleCommand(chatId: number, command: string, args: string) {
+async function handleCommand(botToken: string, chatId: number, command: string, args: string) {
   try {
     switch (command) {
       case "start":
       case "help":
         await sendMessage(
+          botToken,
           chatId,
           `*CRM Bot*\n\n` +
             `Commandes:\n` +
@@ -105,7 +140,7 @@ async function handleCommand(chatId: number, command: string, args: string) {
 
       case "client":
         if (!args) {
-          await sendMessage(chatId, "Usage: /client <nom de la société>")
+          await sendMessage(botToken, chatId, "Usage: /client <nom de la société>")
           return
         }
         const newClient = await prisma.client.create({
@@ -115,7 +150,7 @@ async function handleCommand(chatId: number, command: string, args: string) {
             status: "prospect",
           },
         })
-        await sendMessage(chatId, `Client créé!\n\n*${newClient.companyName}*\nID: ${newClient.id}`)
+        await sendMessage(botToken, chatId, `Client créé!\n\n*${newClient.companyName}*\nID: ${newClient.id}`)
         break
 
       case "clients":
@@ -125,18 +160,18 @@ async function handleCommand(chatId: number, command: string, args: string) {
           orderBy: { createdAt: "desc" },
         })
         if (clients.length === 0) {
-          await sendMessage(chatId, "Aucun client.")
+          await sendMessage(botToken, chatId, "Aucun client.")
           return
         }
         const clientList = clients
           .map((c, i) => `${i + 1}. *${c.companyName}* (${c.status})`)
           .join("\n")
-        await sendMessage(chatId, `*Clients:*\n\n${clientList}`)
+        await sendMessage(botToken, chatId, `*Clients:*\n\n${clientList}`)
         break
 
       case "chercher":
         if (!args) {
-          await sendMessage(chatId, "Usage: /chercher <terme>")
+          await sendMessage(botToken, chatId, "Usage: /chercher <terme>")
           return
         }
         const found = await prisma.client.findMany({
@@ -151,17 +186,17 @@ async function handleCommand(chatId: number, command: string, args: string) {
           take: 10,
         })
         if (found.length === 0) {
-          await sendMessage(chatId, `Aucun résultat pour "${args}"`)
+          await sendMessage(botToken, chatId, `Aucun résultat pour "${args}"`)
           return
         }
         const foundList = found.map((c) => `*${c.companyName}*\n   ${c.email || c.phone || ""}`)
           .join("\n\n")
-        await sendMessage(chatId, `*Résultats:*\n\n${foundList}`)
+        await sendMessage(botToken, chatId, `*Résultats:*\n\n${foundList}`)
         break
 
       case "note":
         if (!args) {
-          await sendMessage(chatId, "Usage: /note <contenu>\n\nPour lier: /note @Client contenu")
+          await sendMessage(botToken, chatId, "Usage: /note <contenu>\n\nPour lier: /note @Client contenu")
           return
         }
 
@@ -208,7 +243,7 @@ async function handleCommand(chatId: number, command: string, args: string) {
         let noteMsg = "Note créée!"
         if (clientIdForNote) noteMsg += "\nLiée au client"
         if (reminderAt) noteMsg += `\nRappel: ${reminderAt.toLocaleDateString("fr-FR")}`
-        await sendMessage(chatId, noteMsg)
+        await sendMessage(botToken, chatId, noteMsg)
         break
 
       case "notes":
@@ -222,18 +257,18 @@ async function handleCommand(chatId: number, command: string, args: string) {
           orderBy: { createdAt: "desc" },
         })
         if (notes.length === 0) {
-          await sendMessage(chatId, "Aucune note.")
+          await sendMessage(botToken, chatId, "Aucune note.")
           return
         }
         const noteList = notes
           .map((n) => `[${n.type}] ${n.content.substring(0, 60)}...`)
           .join("\n\n")
-        await sendMessage(chatId, `*Notes:*\n\n${noteList}`)
+        await sendMessage(botToken, chatId, `*Notes:*\n\n${noteList}`)
         break
 
       case "tache":
         if (!args) {
-          await sendMessage(chatId, "Usage: /tache <titre>")
+          await sendMessage(botToken, chatId, "Usage: /tache <titre>")
           return
         }
 
@@ -275,7 +310,7 @@ async function handleCommand(chatId: number, command: string, args: string) {
           // Get the first tenant
           const tenant = await prisma.tenants.findFirst()
           if (!tenant) {
-            await sendMessage(chatId, "Erreur: Aucun tenant configuré")
+            await sendMessage(botToken, chatId, "Erreur: Aucun tenant configuré")
             return
           }
           project = await prisma.project.create({
@@ -309,7 +344,7 @@ async function handleCommand(chatId: number, command: string, args: string) {
         let taskMsg = `Tâche créée!\n\n*${task.title}*\nID: ${task.id}`
         if (taskDueDate) taskMsg += `\nÉchéance: ${taskDueDate.toLocaleDateString("fr-FR")}`
         if (taskPriority !== "medium") taskMsg += `\nPriorité: ${taskPriority}`
-        await sendMessage(chatId, taskMsg)
+        await sendMessage(botToken, chatId, taskMsg)
         break
 
       case "taches":
@@ -320,7 +355,7 @@ async function handleCommand(chatId: number, command: string, args: string) {
           orderBy: [{ dueDate: "asc" }, { priority: "desc" }],
         })
         if (tasks.length === 0) {
-          await sendMessage(chatId, "Aucune tâche en cours!")
+          await sendMessage(botToken, chatId, "Aucune tâche en cours!")
           return
         }
         const taskList = tasks
@@ -330,20 +365,20 @@ async function handleCommand(chatId: number, command: string, args: string) {
             return `${t.id}. *${t.title}*${pri}${due}`
           })
           .join("\n")
-        await sendMessage(chatId, `*Tâches:*\n\n${taskList}`)
+        await sendMessage(botToken, chatId, `*Tâches:*\n\n${taskList}`)
         break
 
       case "fait":
         const taskIdToComplete = parseInt(args)
         if (!taskIdToComplete) {
-          await sendMessage(chatId, "Usage: /fait <id>")
+          await sendMessage(botToken, chatId, "Usage: /fait <id>")
           return
         }
         const completedTask = await prisma.projectCard.update({
           where: { id: BigInt(taskIdToComplete) },
           data: { isCompleted: true, completedAt: new Date() },
         })
-        await sendMessage(chatId, `Tâche "${completedTask.title}" terminée!`)
+        await sendMessage(botToken, chatId, `Tâche "${completedTask.title}" terminée!`)
         break
 
       case "stats":
@@ -386,6 +421,7 @@ async function handleCommand(chatId: number, command: string, args: string) {
         ])
 
         await sendMessage(
+          botToken,
           chatId,
           `*Stats ${period}*\n\n` +
             `Nouveaux clients: ${clientsCount}\n` +
@@ -396,16 +432,25 @@ async function handleCommand(chatId: number, command: string, args: string) {
         break
 
       default:
-        await sendMessage(chatId, "Commande inconnue. Tapez /help pour voir les commandes.")
+        await sendMessage(botToken, chatId, "Commande inconnue. Tapez /help pour voir les commandes.")
     }
   } catch (error) {
     console.error("Command error:", error)
-    await sendMessage(chatId, `Erreur: ${error instanceof Error ? error.message : "Erreur inconnue"}`)
+    await sendMessage(botToken, chatId, `Erreur: ${error instanceof Error ? error.message : "Erreur inconnue"}`)
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    // Get settings from database
+    const settings = await getTelegramSettings()
+    const { token: botToken, allowedUsers } = settings
+
+    if (!botToken) {
+      console.error("Telegram bot token not configured")
+      return NextResponse.json({ error: "Bot not configured" }, { status: 500 })
+    }
+
     const update: TelegramUpdate = await request.json()
 
     // Handle message
@@ -415,8 +460,8 @@ export async function POST(request: NextRequest) {
       const chatId = chat.id
 
       // Auth check
-      if (ALLOWED_USERS.length > 0 && !ALLOWED_USERS.includes(userId)) {
-        await sendMessage(chatId, "Accès non autorisé.")
+      if (allowedUsers.length > 0 && !allowedUsers.includes(userId)) {
+        await sendMessage(botToken, chatId, "Accès non autorisé.")
         return NextResponse.json({ ok: true })
       }
 
@@ -425,13 +470,13 @@ export async function POST(request: NextRequest) {
         const [cmd, ...argParts] = text.slice(1).split(" ")
         const command = cmd.split("@")[0].toLowerCase() // Handle /command@botname
         const args = argParts.join(" ").trim()
-        await handleCommand(chatId, command, args)
+        await handleCommand(botToken, chatId, command, args)
       }
     }
 
     // Handle callback query
     if (update.callback_query) {
-      await answerCallback(update.callback_query.id)
+      await answerCallback(botToken, update.callback_query.id)
     }
 
     return NextResponse.json({ ok: true })

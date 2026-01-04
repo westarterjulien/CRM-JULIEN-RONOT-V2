@@ -1,14 +1,34 @@
 import { NextRequest, NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || ""
+const DEFAULT_TENANT_ID = BigInt(process.env.CRM_TENANT_ID || "1")
+
+async function getBotToken(): Promise<string> {
+  // Try to get from database first
+  const tenant = await prisma.tenants.findFirst({ where: { id: DEFAULT_TENANT_ID } })
+
+  if (tenant?.settings) {
+    try {
+      const settings = JSON.parse(tenant.settings)
+      if (settings.telegramBotToken) return settings.telegramBotToken
+    } catch { /* ignore */ }
+  }
+
+  // Fallback to env var
+  return process.env.TELEGRAM_BOT_TOKEN || ""
+}
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const action = searchParams.get("action") || "info"
   const webhookUrl = searchParams.get("url")
 
+  const BOT_TOKEN = await getBotToken()
+
   if (!BOT_TOKEN) {
-    return NextResponse.json({ error: "TELEGRAM_BOT_TOKEN not configured" }, { status: 500 })
+    return NextResponse.json({
+      error: "Telegram bot token not configured. Please configure it in Settings > Integrations > Telegram"
+    }, { status: 500 })
   }
 
   try {
