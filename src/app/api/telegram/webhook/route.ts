@@ -344,47 +344,36 @@ async function executeToolCall(name: string, args: Record<string, unknown>): Pro
       }
 
       case "create_task": {
-        let clientId: bigint | undefined
+        // Create task as a note with type "todo"
+        const note = await prisma.note.create({
+          data: {
+            tenant_id: DEFAULT_TENANT_ID,
+            content: args.title as string,
+            type: "todo",
+            reminderAt: args.dueDate ? new Date(args.dueDate as string) : null,
+            createdBy: DEFAULT_USER_ID,
+          },
+        })
+
+        // Link to client if specified
         if (args.clientName) {
           const client = await prisma.client.findFirst({
             where: { tenant_id: DEFAULT_TENANT_ID, companyName: { contains: args.clientName as string } },
           })
-          if (client) clientId = client.id
+          if (client) {
+            await prisma.noteEntityLink.create({
+              data: {
+                noteId: note.id,
+                entityType: "client",
+                entityId: client.id,
+              },
+            })
+          }
         }
-
-        // Get or create default project/column
-        let project = await prisma.project.findFirst({ where: { name: "Général" } })
-        if (!project) {
-          const tenant = await prisma.tenants.findFirst()
-          if (!tenant) throw new Error("No tenant")
-          project = await prisma.project.create({
-            data: { name: "Général", tenants: { connect: { id: tenant.id } } },
-          })
-        }
-
-        let column = await prisma.projectColumn.findFirst({
-          where: { projectId: project.id, name: "À faire" },
-        })
-        if (!column) {
-          column = await prisma.projectColumn.create({
-            data: { projectId: project.id, name: "À faire", position: 0 },
-          })
-        }
-
-        const task = await prisma.projectCard.create({
-          data: {
-            columnId: column.id,
-            title: args.title as string,
-            priority: (args.priority as "low" | "medium" | "high" | "urgent") || "medium",
-            dueDate: args.dueDate ? new Date(args.dueDate as string) : null,
-            clientId,
-            position: 0,
-          },
-        })
 
         return JSON.stringify({
           success: true,
-          task: { id: Number(task.id), title: task.title, dueDate: task.dueDate },
+          task: { id: Number(note.id), title: note.content, dueDate: note.reminderAt },
         })
       }
 
@@ -392,60 +381,72 @@ async function executeToolCall(name: string, args: Record<string, unknown>): Pro
         const filter = args.filter as string || "all"
         const limit = (args.limit as number) || 15
         const now = new Date()
-        const where: Record<string, unknown> = { isCompleted: false }
+        const where: Record<string, unknown> = {
+          tenant_id: DEFAULT_TENANT_ID,
+          type: "todo",
+          isArchived: false,
+        }
 
         if (filter === "overdue") {
-          where.dueDate = { lt: now }
+          where.reminderAt = { lt: now }
         } else if (filter === "today") {
           const tomorrow = new Date(now)
           tomorrow.setDate(tomorrow.getDate() + 1)
           tomorrow.setHours(0, 0, 0, 0)
           const today = new Date(now)
           today.setHours(0, 0, 0, 0)
-          where.dueDate = { gte: today, lt: tomorrow }
+          where.reminderAt = { gte: today, lt: tomorrow }
         } else if (filter === "week") {
           const nextWeek = new Date(now)
           nextWeek.setDate(nextWeek.getDate() + 7)
-          where.dueDate = { lte: nextWeek }
+          where.reminderAt = { lte: nextWeek }
         }
 
-        const tasks = await prisma.projectCard.findMany({
+        const tasks = await prisma.note.findMany({
           where,
           take: limit,
-          orderBy: [{ dueDate: "asc" }, { priority: "desc" }],
-          include: { client: { select: { companyName: true } } },
+          orderBy: [{ reminderAt: "asc" }, { createdAt: "desc" }],
+          include: { entityLinks: true },
         })
 
-        return JSON.stringify({
-          tasks: tasks.map(t => ({
+        // Get client names for linked tasks
+        const tasksWithClients = await Promise.all(tasks.map(async (t) => {
+          const clientLink = t.entityLinks.find(l => l.entityType === "client")
+          let clientName: string | null = null
+          if (clientLink) {
+            const client = await prisma.client.findUnique({ where: { id: clientLink.entityId } })
+            clientName = client?.companyName || null
+          }
+          return {
             id: Number(t.id),
-            title: t.title,
-            priority: t.priority,
-            dueDate: t.dueDate,
-            client: t.client?.companyName,
-            isOverdue: t.dueDate && t.dueDate < now,
-          })),
-        })
+            title: t.content,
+            dueDate: t.reminderAt,
+            client: clientName,
+            isOverdue: t.reminderAt && t.reminderAt < now,
+          }
+        }))
+
+        return JSON.stringify({ tasks: tasksWithClients })
       }
 
       case "complete_task": {
         let task
         if (args.taskId) {
-          task = await prisma.projectCard.update({
+          task = await prisma.note.update({
             where: { id: BigInt(args.taskId as number) },
-            data: { isCompleted: true, completedAt: new Date() },
+            data: { isArchived: true },
           })
         } else if (args.taskTitle) {
-          const found = await prisma.projectCard.findFirst({
-            where: { isCompleted: false, title: { contains: args.taskTitle as string } },
+          const found = await prisma.note.findFirst({
+            where: { tenant_id: DEFAULT_TENANT_ID, type: "todo", isArchived: false, content: { contains: args.taskTitle as string } },
           })
           if (!found) return JSON.stringify({ success: false, error: "Tâche non trouvée" })
-          task = await prisma.projectCard.update({
+          task = await prisma.note.update({
             where: { id: found.id },
-            data: { isCompleted: true, completedAt: new Date() },
+            data: { isArchived: true },
           })
         }
-        return JSON.stringify({ success: true, task: task ? { id: Number(task.id), title: task.title } : null })
+        return JSON.stringify({ success: true, task: task ? { id: Number(task.id), title: task.content } : null })
       }
 
       case "get_stats": {
