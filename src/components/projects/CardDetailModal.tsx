@@ -249,7 +249,7 @@ export default function CardDetailModal({
                 </h2>
               )}
               <p className="text-sm text-gray-500 mt-1">
-                dans {card.column.project.name} / {card.column.name}
+                {card.column?.project?.name && `${card.column.project.name} / `}{card.column?.name || ""}
               </p>
             </div>
             <div className="flex items-center gap-2">
