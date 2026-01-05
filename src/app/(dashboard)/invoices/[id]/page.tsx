@@ -111,6 +111,11 @@ export default function InvoiceDetailPage({
   const [paymentLink, setPaymentLink] = useState("")
   const [generatingPaymentLink, setGeneratingPaymentLink] = useState(false)
   const [paymentLinkError, setPaymentLinkError] = useState<string | null>(null)
+  const [checkingPayment, setCheckingPayment] = useState(false)
+  const [paymentCheckResult, setPaymentCheckResult] = useState<{
+    status: string
+    message: string
+  } | null>(null)
 
   // Mark as paid modal states
   const [markPaidDialogOpen, setMarkPaidDialogOpen] = useState(false)
@@ -378,6 +383,40 @@ export default function InvoiceDetailPage({
     }
   }
 
+  const handleCheckPayment = async () => {
+    if (!invoice) return
+    setCheckingPayment(true)
+    setPaymentCheckResult(null)
+
+    try {
+      const response = await fetch("/api/revolut/check-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invoiceId: invoice.id }),
+      })
+
+      const result = await response.json()
+      setPaymentCheckResult(result)
+
+      // If payment was detected, refresh invoice data
+      if (result.status === "paid") {
+        const invoiceResponse = await fetch(`/api/invoices/${id}`)
+        if (invoiceResponse.ok) {
+          const updatedInvoice = await invoiceResponse.json()
+          setInvoice(updatedInvoice)
+        }
+      }
+    } catch (error) {
+      console.error("Error checking payment:", error)
+      setPaymentCheckResult({
+        status: "error",
+        message: "Erreur lors de la vérification",
+      })
+    } finally {
+      setCheckingPayment(false)
+    }
+  }
+
   const inputStyle = {
     background: "#F5F5F7",
     border: "1px solid #EEEEEE",
@@ -628,17 +667,59 @@ export default function InvoiceDetailPage({
                         </div>
                       )}
                       {invoice.paymentMethod === "card" && invoice.payment_link && (
-                        <div className="mt-2">
-                          <a
-                            href={invoice.payment_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80"
-                            style={{ background: "#5F00BA", color: "#FFFFFF" }}
-                          >
-                            <CreditCard className="h-4 w-4" />
-                            Voir le lien de paiement
-                          </a>
+                        <div className="mt-2 space-y-2">
+                          <div className="flex flex-wrap gap-2">
+                            <a
+                              href={invoice.payment_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80"
+                              style={{ background: "#5F00BA", color: "#FFFFFF" }}
+                            >
+                              <CreditCard className="h-4 w-4" />
+                              Voir le lien de paiement
+                            </a>
+                            {invoice.status !== "paid" && (
+                              <button
+                                onClick={handleCheckPayment}
+                                disabled={checkingPayment}
+                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
+                                style={{ background: "#F5F5F7", color: "#5F00BA", border: "1px solid #5F00BA" }}
+                              >
+                                {checkingPayment ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Vérification...
+                                  </>
+                                ) : (
+                                  <>
+                                    <RefreshCw className="h-4 w-4" />
+                                    Vérifier le paiement
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                          {paymentCheckResult && (
+                            <div
+                              className="p-3 rounded-lg text-sm flex items-center gap-2"
+                              style={{
+                                background: paymentCheckResult.status === "paid" ? "#D4EDDA" :
+                                           paymentCheckResult.status === "error" ? "#FEE2E8" : "#E3F2FD",
+                                color: paymentCheckResult.status === "paid" ? "#28B95F" :
+                                       paymentCheckResult.status === "error" ? "#F04B69" : "#0064FA",
+                              }}
+                            >
+                              {paymentCheckResult.status === "paid" ? (
+                                <CheckCircle className="h-4 w-4" />
+                              ) : paymentCheckResult.status === "error" ? (
+                                <AlertCircle className="h-4 w-4" />
+                              ) : (
+                                <Clock className="h-4 w-4" />
+                              )}
+                              {paymentCheckResult.message}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

@@ -76,7 +76,7 @@ export async function GET(
       createdAt: invoice.createdAt?.toISOString() || new Date().toISOString(),
       updatedAt: invoice.updatedAt?.toISOString() || new Date().toISOString(),
       paymentMethod: invoice.paymentMethod || null,
-      debitDate: invoice.debitDate?.toISOString() || null,
+      debitDate: invoice.debit_date?.toISOString() || null,
       payment_link: invoice.payment_link || null,
       client: {
         id: invoice.client.id.toString(),
