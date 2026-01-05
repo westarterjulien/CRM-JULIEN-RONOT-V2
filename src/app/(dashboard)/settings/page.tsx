@@ -2506,17 +2506,197 @@ function SettingsContent() {
                     </div>
                   )}
 
-                  <div className="p-4 rounded-xl" style={{ background: "#F5F5F7" }}>
-                    <h4 className="font-medium mb-2" style={{ color: "#111111" }}>Commandes disponibles:</h4>
-                    <div className="grid grid-cols-2 gap-2 text-sm" style={{ color: "#666666" }}>
-                      <div><code>/client</code> - Créer un client</div>
-                      <div><code>/clients</code> - Lister les clients</div>
-                      <div><code>/note</code> - Créer une note</div>
-                      <div><code>/notes</code> - Lister les notes</div>
-                      <div><code>/tache</code> - Créer une tâche</div>
-                      <div><code>/taches</code> - Lister les tâches</div>
-                      <div><code>/stats</code> - Statistiques</div>
-                      <div><code>/help</code> - Aide</div>
+                  {/* Section des fonctionnalités complètes */}
+                  <div className="space-y-4">
+                    <h4 className="font-semibold text-base" style={{ color: "#111111" }}>Fonctionnalités du Bot Telegram</h4>
+
+                    {/* Conversation Naturelle */}
+                    <div className="p-4 rounded-xl" style={{ background: "linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%)" }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-lg">💬</span>
+                        <h5 className="font-medium" style={{ color: "#2E7D32" }}>Conversation Naturelle avec IA</h5>
+                      </div>
+                      <p className="text-sm" style={{ color: "#388E3C" }}>
+                        Discutez naturellement avec le bot ! Pas besoin de commandes, écrivez simplement ce que vous voulez faire.
+                        Le bot comprend le contexte et se souvient de vos conversations précédentes.
+                      </p>
+                      <div className="mt-2 text-xs" style={{ color: "#4CAF50" }}>
+                        Ex: &quot;Montre-moi les clients qui ont des factures impayées&quot; ou &quot;Crée un rappel pour appeler Jean demain à 10h&quot;
+                      </div>
+                    </div>
+
+                    {/* Grid des fonctionnalités */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                      {/* Clients */}
+                      <div className="p-4 rounded-xl" style={{ background: "#F5F5F7" }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-lg">👥</span>
+                          <h5 className="font-medium" style={{ color: "#111111" }}>Gestion des Clients</h5>
+                        </div>
+                        <ul className="text-sm space-y-1" style={{ color: "#666666" }}>
+                          <li>• Créer un nouveau client</li>
+                          <li>• Rechercher un client par nom</li>
+                          <li>• Voir le résumé complet d&apos;un client</li>
+                          <li>• Score de santé client (0-100)</li>
+                          <li>• Top clients par chiffre d&apos;affaires</li>
+                        </ul>
+                      </div>
+
+                      {/* Factures */}
+                      <div className="p-4 rounded-xl" style={{ background: "#F5F5F7" }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-lg">🧾</span>
+                          <h5 className="font-medium" style={{ color: "#111111" }}>Gestion des Factures</h5>
+                        </div>
+                        <ul className="text-sm space-y-1" style={{ color: "#666666" }}>
+                          <li>• Créer une facture rapidement</li>
+                          <li>• Lister par statut (envoyées, payées, etc.)</li>
+                          <li>• Marquer une facture comme payée</li>
+                          <li>• Voir les factures en retard</li>
+                          <li>• <strong>Export PDF par message</strong></li>
+                        </ul>
+                      </div>
+
+                      {/* Devis */}
+                      <div className="p-4 rounded-xl" style={{ background: "#F5F5F7" }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-lg">📝</span>
+                          <h5 className="font-medium" style={{ color: "#111111" }}>Gestion des Devis</h5>
+                        </div>
+                        <ul className="text-sm space-y-1" style={{ color: "#666666" }}>
+                          <li>• Créer un devis</li>
+                          <li>• Lister les devis en attente</li>
+                          <li>• Voir les devis qui expirent bientôt</li>
+                          <li>• <strong>Export PDF par message</strong></li>
+                        </ul>
+                      </div>
+
+                      {/* Notes & Rappels */}
+                      <div className="p-4 rounded-xl" style={{ background: "#F5F5F7" }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-lg">📌</span>
+                          <h5 className="font-medium" style={{ color: "#111111" }}>Notes & Rappels</h5>
+                        </div>
+                        <ul className="text-sm space-y-1" style={{ color: "#666666" }}>
+                          <li>• Créer des notes (liées ou non à un client)</li>
+                          <li>• Programmer des rappels</li>
+                          <li>• Notifications automatiques aux rappels</li>
+                          <li>• Rechercher dans les notes</li>
+                        </ul>
+                      </div>
+
+                      {/* Tâches */}
+                      <div className="p-4 rounded-xl" style={{ background: "#F5F5F7" }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-lg">✅</span>
+                          <h5 className="font-medium" style={{ color: "#111111" }}>Gestion des Tâches</h5>
+                        </div>
+                        <ul className="text-sm space-y-1" style={{ color: "#666666" }}>
+                          <li>• Créer des tâches dans un projet</li>
+                          <li>• Voir les tâches du jour</li>
+                          <li>• Voir les tâches en retard</li>
+                          <li>• Marquer comme terminée</li>
+                          <li>• Assigner une date d&apos;échéance</li>
+                        </ul>
+                      </div>
+
+                      {/* Trésorerie & Stats */}
+                      <div className="p-4 rounded-xl" style={{ background: "#F5F5F7" }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-lg">📊</span>
+                          <h5 className="font-medium" style={{ color: "#111111" }}>Trésorerie & Analytics</h5>
+                        </div>
+                        <ul className="text-sm space-y-1" style={{ color: "#666666" }}>
+                          <li>• Solde de trésorerie en temps réel</li>
+                          <li>• CA du mois / de l&apos;année</li>
+                          <li>• Montant à encaisser</li>
+                          <li>• <strong>Prédictions de CA</strong></li>
+                          <li>• Comparaisons temporelles</li>
+                        </ul>
+                      </div>
+
+                      {/* Domaines & Abonnements */}
+                      <div className="p-4 rounded-xl" style={{ background: "#F5F5F7" }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-lg">🌐</span>
+                          <h5 className="font-medium" style={{ color: "#111111" }}>Domaines & Abonnements</h5>
+                        </div>
+                        <ul className="text-sm space-y-1" style={{ color: "#666666" }}>
+                          <li>• Domaines qui expirent bientôt</li>
+                          <li>• Informations sur un domaine</li>
+                          <li>• Abonnements à renouveler</li>
+                          <li>• Calcul du MRR (revenu récurrent)</li>
+                        </ul>
+                      </div>
+
+                      {/* Tickets */}
+                      <div className="p-4 rounded-xl" style={{ background: "#F5F5F7" }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-lg">🎫</span>
+                          <h5 className="font-medium" style={{ color: "#111111" }}>Tickets Support</h5>
+                        </div>
+                        <ul className="text-sm space-y-1" style={{ color: "#666666" }}>
+                          <li>• Voir les tickets ouverts</li>
+                          <li>• Nombre de tickets par priorité</li>
+                          <li>• Détails d&apos;un ticket</li>
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* Fonctionnalités Multimédia */}
+                    <div className="p-4 rounded-xl" style={{ background: "linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%)" }}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-lg">🎤</span>
+                        <h5 className="font-medium" style={{ color: "#1565C0" }}>Fonctionnalités Multimédia</h5>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="p-3 rounded-lg" style={{ background: "rgba(255,255,255,0.7)" }}>
+                          <div className="font-medium text-sm mb-1" style={{ color: "#1976D2" }}>🎙️ Messages Vocaux</div>
+                          <p className="text-xs" style={{ color: "#1565C0" }}>
+                            Envoyez un message vocal, il sera automatiquement transcrit et traité par l&apos;IA.
+                          </p>
+                        </div>
+                        <div className="p-3 rounded-lg" style={{ background: "rgba(255,255,255,0.7)" }}>
+                          <div className="font-medium text-sm mb-1" style={{ color: "#1976D2" }}>📸 OCR Carte de Visite</div>
+                          <p className="text-xs" style={{ color: "#1565C0" }}>
+                            Photographiez une carte de visite pour créer automatiquement un client.
+                          </p>
+                        </div>
+                        <div className="p-3 rounded-lg" style={{ background: "rgba(255,255,255,0.7)" }}>
+                          <div className="font-medium text-sm mb-1" style={{ color: "#1976D2" }}>📄 Export PDF</div>
+                          <p className="text-xs" style={{ color: "#1565C0" }}>
+                            Demandez le PDF d&apos;une facture ou d&apos;un devis, recevez-le directement.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Rapport Matinal */}
+                    <div className="p-4 rounded-xl" style={{ background: "linear-gradient(135deg, #FFF8E1 0%, #FFECB3 100%)" }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-lg">☀️</span>
+                        <h5 className="font-medium" style={{ color: "#F57C00" }}>Rapport Matinal Automatique</h5>
+                      </div>
+                      <p className="text-sm" style={{ color: "#EF6C00" }}>
+                        Chaque matin à 8h, recevez automatiquement un briefing complet: trésorerie, tâches du jour,
+                        factures en retard, devis qui expirent, domaines à renouveler, et plus encore.
+                      </p>
+                    </div>
+
+                    {/* Exemples de commandes */}
+                    <div className="p-4 rounded-xl" style={{ background: "#FAFAFA", border: "1px solid #EEEEEE" }}>
+                      <h5 className="font-medium mb-3" style={{ color: "#111111" }}>Exemples de ce que vous pouvez dire:</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm" style={{ color: "#666666" }}>
+                        <div className="p-2 rounded" style={{ background: "#F5F5F7" }}>&quot;Montre-moi la trésorerie&quot;</div>
+                        <div className="p-2 rounded" style={{ background: "#F5F5F7" }}>&quot;Quelles sont mes tâches du jour ?&quot;</div>
+                        <div className="p-2 rounded" style={{ background: "#F5F5F7" }}>&quot;Crée un client Dupont SARL&quot;</div>
+                        <div className="p-2 rounded" style={{ background: "#F5F5F7" }}>&quot;Envoie-moi le PDF de la facture FAC-2025-0042&quot;</div>
+                        <div className="p-2 rounded" style={{ background: "#F5F5F7" }}>&quot;Factures impayées de plus de 30 jours&quot;</div>
+                        <div className="p-2 rounded" style={{ background: "#F5F5F7" }}>&quot;Rappelle-moi d&apos;appeler Jean demain 14h&quot;</div>
+                        <div className="p-2 rounded" style={{ background: "#F5F5F7" }}>&quot;Quel est le score santé de Acme Corp ?&quot;</div>
+                        <div className="p-2 rounded" style={{ background: "#F5F5F7" }}>&quot;Compare le CA janvier vs février&quot;</div>
+                      </div>
                     </div>
                   </div>
                 </>
