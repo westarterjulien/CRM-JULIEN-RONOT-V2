@@ -1202,7 +1202,7 @@ export default function InvoiceDetailPage({
                   <label className="text-sm font-semibold" style={{ color: "#444444" }}>
                     Lien de paiement Revolut
                   </label>
-                  <div className="flex gap-2 mt-2">
+                  <div className="flex flex-col sm:flex-row gap-2 mt-2">
                     <input
                       type="url"
                       value={paymentLink}
@@ -1210,8 +1210,8 @@ export default function InvoiceDetailPage({
                         setPaymentLink(e.target.value)
                         setPaymentLinkError(null)
                       }}
-                      placeholder="https://revolut.me/..."
-                      className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none"
+                      placeholder="https://checkout.revolut.com/..."
+                      className="flex-1 min-w-0 px-4 py-2.5 rounded-xl text-sm outline-none"
                       style={inputStyle}
                     />
                     <button
@@ -1244,15 +1244,15 @@ export default function InvoiceDetailPage({
                         }
                       }}
                       disabled={generatingPaymentLink}
-                      className="px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-50"
-                      style={{ background: "#191C1F", color: "#FFFFFF" }}
+                      className="flex-shrink-0 px-4 py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-50"
+                      style={{ background: "#5F00BA", color: "#FFFFFF" }}
                     >
                       {generatingPaymentLink ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <RefreshCw className="h-4 w-4" />
+                        <CreditCard className="h-4 w-4" />
                       )}
-                      Générer
+                      Générer lien Revolut
                     </button>
                   </div>
                   {paymentLinkError && (
