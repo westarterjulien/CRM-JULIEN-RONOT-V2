@@ -14,13 +14,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Build Merchant API URL based on environment
-    // Note: Merchant API uses /api/orders (not /api/1.0/orders)
+    // Note: Merchant API uses /api/1.0/orders
     const baseUrl = environment === "production"
-      ? "https://merchant.revolut.com/api"
-      : "https://sandbox-merchant.revolut.com/api"
+      ? "https://merchant.revolut.com/api/1.0"
+      : "https://sandbox-merchant.revolut.com/api/1.0"
 
     // Test connection by listing orders (Merchant API endpoint)
-    const response = await fetch(`${baseUrl}/orders?limit=1`, {
+    const response = await fetch(`${baseUrl}/orders`, {
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
