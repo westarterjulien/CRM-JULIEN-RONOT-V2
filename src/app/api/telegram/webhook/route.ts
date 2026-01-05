@@ -205,87 +205,139 @@ async function getO365TokenForTelegramUser(chatId: number): Promise<O365TokenRes
   return { accessToken: newToken, userEmail: user.o365ConnectedEmail || "" }
 }
 
-// Parse natural language date/time to ISO format
-function parseDateTime(dateStr: string): Date {
+// Get current date/time in Paris timezone
+function getParisNow(): { year: number; month: number; day: number; hours: number; minutes: number; dayOfWeek: number } {
   const now = new Date()
+  const parisStr = now.toLocaleString("en-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })
+  // Format: "2026-01-05, 09:30"
+  const match = parisStr.match(/(\d{4})-(\d{2})-(\d{2}),?\s*(\d{2}):(\d{2})/)
+  if (!match) {
+    // Fallback
+    return { year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate(), hours: now.getHours(), minutes: now.getMinutes(), dayOfWeek: now.getDay() }
+  }
+
+  // Get day of week in Paris
+  const dayOfWeek = parseInt(new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Paris", weekday: "narrow" }).format(now).charCodeAt(0).toString()) % 7
+  // Actually, let's use a simpler method
+  const parisDayStr = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Paris", weekday: "short" }).format(now)
+  const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+
+  return {
+    year: parseInt(match[1]),
+    month: parseInt(match[2]),
+    day: parseInt(match[3]),
+    hours: parseInt(match[4]),
+    minutes: parseInt(match[5]),
+    dayOfWeek: dayMap[parisDayStr] ?? 0,
+  }
+}
+
+// Paris time components type
+interface ParisDateTime {
+  year: number
+  month: number
+  day: number
+  hours: number
+  minutes: number
+}
+
+// Parse natural language date/time to Paris time components
+function parseDateTime(dateStr: string): ParisDateTime {
+  const paris = getParisNow()
   const lower = dateStr.toLowerCase().trim()
+
+  let targetDay = paris.day
+  let targetMonth = paris.month
+  let targetYear = paris.year
+  let targetHours = 9 // Default 9h
+  let targetMinutes = 0
+
+  // Extract time from string
+  const timeMatch = lower.match(/(\d{1,2})[h:](\d{0,2})?/)
+  if (timeMatch) {
+    targetHours = parseInt(timeMatch[1])
+    targetMinutes = parseInt(timeMatch[2] || "0")
+  }
 
   // Handle "demain"
   if (lower.includes("demain")) {
-    const tomorrow = new Date(now)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-
-    // Extract time
-    const timeMatch = lower.match(/(\d{1,2})[h:](\d{0,2})?/)
-    if (timeMatch) {
-      tomorrow.setHours(parseInt(timeMatch[1]), parseInt(timeMatch[2] || "0"), 0, 0)
-    } else {
-      tomorrow.setHours(9, 0, 0, 0) // Default 9h
-    }
-    return tomorrow
+    const tempDate = new Date(targetYear, targetMonth - 1, targetDay + 1)
+    targetYear = tempDate.getFullYear()
+    targetMonth = tempDate.getMonth() + 1
+    targetDay = tempDate.getDate()
   }
-
-  // Handle "aujourd'hui"
-  if (lower.includes("aujourd")) {
-    const today = new Date(now)
-    const timeMatch = lower.match(/(\d{1,2})[h:](\d{0,2})?/)
-    if (timeMatch) {
-      today.setHours(parseInt(timeMatch[1]), parseInt(timeMatch[2] || "0"), 0, 0)
-    }
-    return today
+  // Handle "après-demain"
+  else if (lower.includes("après-demain") || lower.includes("apres-demain")) {
+    const tempDate = new Date(targetYear, targetMonth - 1, targetDay + 2)
+    targetYear = tempDate.getFullYear()
+    targetMonth = tempDate.getMonth() + 1
+    targetDay = tempDate.getDate()
   }
-
-  // Handle "lundi", "mardi", etc.
-  const days = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"]
-  for (let i = 0; i < days.length; i++) {
-    if (lower.includes(days[i])) {
-      const target = new Date(now)
-      const currentDay = now.getDay()
-      let daysUntil = i - currentDay
-      if (daysUntil <= 0) daysUntil += 7 // Next week
-      target.setDate(target.getDate() + daysUntil)
-
-      const timeMatch = lower.match(/(\d{1,2})[h:](\d{0,2})?/)
-      if (timeMatch) {
-        target.setHours(parseInt(timeMatch[1]), parseInt(timeMatch[2] || "0"), 0, 0)
-      } else {
-        target.setHours(9, 0, 0, 0)
+  // Handle "aujourd'hui" - keep current date
+  else if (lower.includes("aujourd")) {
+    // Keep today's date
+  }
+  // Handle day names
+  else {
+    const days = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"]
+    for (let i = 0; i < days.length; i++) {
+      if (lower.includes(days[i])) {
+        let daysUntil = i - paris.dayOfWeek
+        if (daysUntil <= 0) daysUntil += 7
+        const tempDate = new Date(targetYear, targetMonth - 1, targetDay + daysUntil)
+        targetYear = tempDate.getFullYear()
+        targetMonth = tempDate.getMonth() + 1
+        targetDay = tempDate.getDate()
+        break
       }
-      return target
     }
   }
 
-  // Try ISO format or standard date parsing
-  const parsed = new Date(dateStr)
-  if (!isNaN(parsed.getTime())) {
-    return parsed
-  }
-
-  // Fallback: try to parse "YYYY-MM-DD HH:MM" or "DD/MM/YYYY HH:MM"
-  const frMatch = lower.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(\d{1,2})[h:](\d{0,2})?/)
+  // Try to parse explicit date formats
+  // Format: DD/MM/YYYY
+  const frMatch = lower.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
   if (frMatch) {
-    return new Date(
-      parseInt(frMatch[3]),
-      parseInt(frMatch[2]) - 1,
-      parseInt(frMatch[1]),
-      parseInt(frMatch[4]),
-      parseInt(frMatch[5] || "0")
-    )
+    targetDay = parseInt(frMatch[1])
+    targetMonth = parseInt(frMatch[2])
+    targetYear = parseInt(frMatch[3])
   }
 
-  const isoMatch = lower.match(/(\d{4})-(\d{2})-(\d{2})\s*(\d{1,2})[h:](\d{0,2})?/)
+  // Format: YYYY-MM-DD
+  const isoMatch = lower.match(/(\d{4})-(\d{2})-(\d{2})/)
   if (isoMatch) {
-    return new Date(
-      parseInt(isoMatch[1]),
-      parseInt(isoMatch[2]) - 1,
-      parseInt(isoMatch[3]),
-      parseInt(isoMatch[4]),
-      parseInt(isoMatch[5] || "0")
-    )
+    targetYear = parseInt(isoMatch[1])
+    targetMonth = parseInt(isoMatch[2])
+    targetDay = parseInt(isoMatch[3])
   }
 
-  // Default: return input as-is (will likely fail)
-  return new Date(dateStr)
+  return { year: targetYear, month: targetMonth, day: targetDay, hours: targetHours, minutes: targetMinutes }
+}
+
+// Format Paris time for Microsoft Graph API (without timezone suffix)
+function formatForGraph(dt: ParisDateTime): string {
+  const pad = (n: number) => n.toString().padStart(2, "0")
+  return `${dt.year}-${pad(dt.month)}-${pad(dt.day)}T${pad(dt.hours)}:${pad(dt.minutes)}:00`
+}
+
+// Add duration to Paris time
+function addHours(dt: ParisDateTime, hours: number): ParisDateTime {
+  const date = new Date(dt.year, dt.month - 1, dt.day, dt.hours, dt.minutes)
+  date.setHours(date.getHours() + hours)
+  return {
+    year: date.getFullYear(),
+    month: date.getMonth() + 1,
+    day: date.getDate(),
+    hours: date.getHours(),
+    minutes: date.getMinutes(),
+  }
 }
 
 // Telegram API helpers
@@ -2883,26 +2935,27 @@ Ouvre le lien PDF et utilise "Imprimer > Enregistrer en PDF" pour télécharger.
           })
         }
 
-        // Parse dates
+        // Parse dates (returns Paris time components)
         const startDate = parseDateTime(args.startDate as string)
-        let endDate: Date
+        let endDate: ParisDateTime
 
         if (args.endDate) {
           endDate = parseDateTime(args.endDate as string)
         } else {
           // Default: 1 hour duration
-          endDate = new Date(startDate.getTime() + 60 * 60 * 1000)
+          endDate = addHours(startDate, 1)
         }
 
         // Build event payload for Microsoft Graph
+        // IMPORTANT: dateTime must be WITHOUT "Z" suffix when timeZone is specified
         const eventPayload: Record<string, unknown> = {
           subject: args.subject as string,
           start: {
-            dateTime: startDate.toISOString(),
+            dateTime: formatForGraph(startDate),
             timeZone: "Europe/Paris",
           },
           end: {
-            dateTime: endDate.toISOString(),
+            dateTime: formatForGraph(endDate),
             timeZone: "Europe/Paris",
           },
         }
@@ -2943,14 +2996,15 @@ Ouvre le lien PDF et utilise "Imprimer > Enregistrer en PDF" pour télécharger.
 
         const createdEvent = await createResponse.json()
 
-        // Format response
+        // Format response - create a Date from Paris time for display
+        const displayDate = new Date(startDate.year, startDate.month - 1, startDate.day, startDate.hours, startDate.minutes)
         const formattedStart = new Intl.DateTimeFormat("fr-FR", {
           weekday: "long",
           day: "numeric",
           month: "long",
           hour: "2-digit",
           minute: "2-digit",
-        }).format(startDate)
+        }).format(displayDate)
 
         // If client name provided, create a note linking the event
         if (args.clientName) {
