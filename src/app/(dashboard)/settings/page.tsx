@@ -39,6 +39,9 @@ import {
   XCircle,
   Bell,
   Server,
+  Calendar,
+  Link,
+  Unlink,
 } from "lucide-react"
 import Image from "next/image"
 import { useTenant } from "@/contexts/tenant-context"
@@ -282,6 +285,13 @@ function SettingsContent() {
   const [o365ConnectedEmail, setO365ConnectedEmail] = useState("")
   const [connectingO365Mailbox, setConnectingO365Mailbox] = useState(false)
 
+  // Personal Calendar (O365 per user)
+  const [calendarConnected, setCalendarConnected] = useState(false)
+  const [calendarConnectedEmail, setCalendarConnectedEmail] = useState("")
+  const [calendarConnectedAt, setCalendarConnectedAt] = useState<string | null>(null)
+  const [connectingCalendar, setConnectingCalendar] = useState(false)
+  const [disconnectingCalendar, setDisconnectingCalendar] = useState(false)
+
   // GoCardless (Bank Account Data)
   const [gocardlessEnabled, setGocardlessEnabled] = useState(false)
   const [gocardlessSecretId, setGocardlessSecretId] = useState("")
@@ -391,6 +401,19 @@ function SettingsContent() {
           }
         } catch (e) {
           console.error("Error fetching O365 mailbox status:", e)
+        }
+
+        // Load personal calendar connection status
+        try {
+          const calendarStatusRes = await fetch("/api/users/calendar-status")
+          if (calendarStatusRes.ok) {
+            const calendarStatus = await calendarStatusRes.json()
+            setCalendarConnected(calendarStatus.connected || false)
+            setCalendarConnectedEmail(calendarStatus.connectedEmail || "")
+            setCalendarConnectedAt(calendarStatus.connectedAt || null)
+          }
+        } catch (e) {
+          console.error("Error fetching calendar status:", e)
         }
 
         // GoCardless
@@ -717,6 +740,7 @@ function SettingsContent() {
     { id: "dns", label: "DNS", icon: Globe, color: "#14B4E6" },
     { id: "notifications", label: "Notifications", icon: Bell, color: "#F04B69" },
     { id: "integrations", label: "Intégrations", icon: Puzzle, color: "#28B95F" },
+    { id: "calendar", label: "Mon Calendrier", icon: Calendar, color: "#14B4E6" },
   ]
 
   const inputStyle = {
@@ -2716,6 +2740,177 @@ function SettingsContent() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Calendar Tab - Personal O365 Calendar */}
+      {activeTab === "calendar" && (
+        <div
+          className="rounded-2xl p-6 w-full space-y-6"
+          style={{ background: "#FFFFFF", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "#E3F2FD" }}>
+              <Calendar className="h-5 w-5" style={{ color: "#14B4E6" }} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold" style={{ color: "#111111" }}>Mon Calendrier</h2>
+              <p className="text-sm" style={{ color: "#666666" }}>Connectez votre calendrier Microsoft 365 pour les rappels et l&apos;affichage des rendez-vous</p>
+            </div>
+          </div>
+
+          {/* Status Card */}
+          <div
+            className="rounded-xl p-5"
+            style={{
+              background: calendarConnected ? "#E8F5E9" : "#FFF8E1",
+              border: `1px solid ${calendarConnected ? "#4CAF50" : "#F57C00"}`,
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-12 h-12 rounded-lg flex items-center justify-center"
+                  style={{ background: calendarConnected ? "#C8E6C9" : "#FFECB3" }}
+                >
+                  {calendarConnected ? (
+                    <Link className="h-6 w-6" style={{ color: "#2E7D32" }} />
+                  ) : (
+                    <Unlink className="h-6 w-6" style={{ color: "#F57C00" }} />
+                  )}
+                </div>
+                <div>
+                  <p className="font-medium" style={{ color: calendarConnected ? "#2E7D32" : "#E65100" }}>
+                    {calendarConnected ? "Calendrier connecté" : "Calendrier non connecté"}
+                  </p>
+                  {calendarConnected && calendarConnectedEmail && (
+                    <p className="text-sm" style={{ color: "#388E3C" }}>
+                      {calendarConnectedEmail}
+                    </p>
+                  )}
+                  {calendarConnected && calendarConnectedAt && (
+                    <p className="text-xs mt-0.5" style={{ color: "#66BB6A" }}>
+                      Connecté le {new Date(calendarConnectedAt).toLocaleDateString("fr-FR")}
+                    </p>
+                  )}
+                  {!calendarConnected && (
+                    <p className="text-sm" style={{ color: "#F57C00" }}>
+                      Connectez votre calendrier pour voir vos prochains RDV
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {calendarConnected && (
+                  <button
+                    onClick={async () => {
+                      if (!confirm("Déconnecter votre calendrier O365 ?")) return
+                      setDisconnectingCalendar(true)
+                      try {
+                        const res = await fetch("/api/users/o365-disconnect", { method: "POST" })
+                        if (res.ok) {
+                          setCalendarConnected(false)
+                          setCalendarConnectedEmail("")
+                          setCalendarConnectedAt(null)
+                        }
+                      } catch (e) {
+                        console.error("Error disconnecting calendar:", e)
+                      } finally {
+                        setDisconnectingCalendar(false)
+                      }
+                    }}
+                    disabled={disconnectingCalendar}
+                    className="px-4 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-opacity hover:opacity-80 disabled:opacity-50"
+                    style={{ background: "#FFFFFF", color: "#F04B69", border: "1px solid #F04B69" }}
+                  >
+                    {disconnectingCalendar ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Unlink className="h-4 w-4" />
+                    )}
+                    Déconnecter
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setConnectingCalendar(true)
+                    window.location.href = "/api/users/o365-connect"
+                  }}
+                  disabled={connectingCalendar}
+                  className="px-4 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-50"
+                  style={{
+                    background: calendarConnected ? "#E8F5E9" : "#14B4E6",
+                    color: calendarConnected ? "#2E7D32" : "#FFFFFF",
+                  }}
+                >
+                  {connectingCalendar ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Link className="h-4 w-4" />
+                  )}
+                  {calendarConnected ? "Reconnecter" : "Connecter mon calendrier"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Features */}
+          <div className="rounded-xl p-4" style={{ background: "#F5F5F7" }}>
+            <h3 className="font-medium mb-3" style={{ color: "#111111" }}>Fonctionnalités activées avec votre calendrier</h3>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="flex items-start gap-3 p-3 rounded-lg" style={{ background: "#FFFFFF" }}>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "#E3F2FD" }}>
+                  <Calendar className="h-4 w-4" style={{ color: "#14B4E6" }} />
+                </div>
+                <div>
+                  <p className="font-medium text-sm" style={{ color: "#111111" }}>Prochain RDV dans la navbar</p>
+                  <p className="text-xs" style={{ color: "#666666" }}>Votre prochain rendez-vous s&apos;affiche en haut de l&apos;écran</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 rounded-lg" style={{ background: "#FFFFFF" }}>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "#E3F2FD" }}>
+                  <Bell className="h-4 w-4" style={{ color: "#14B4E6" }} />
+                </div>
+                <div>
+                  <p className="font-medium text-sm" style={{ color: "#111111" }}>Rappels Telegram</p>
+                  <p className="text-xs" style={{ color: "#666666" }}>Notification 10 min avant chaque réunion</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 rounded-lg" style={{ background: "#FFFFFF" }}>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "#E3F2FD" }}>
+                  <MessageSquare className="h-4 w-4" style={{ color: "#14B4E6" }} />
+                </div>
+                <div>
+                  <p className="font-medium text-sm" style={{ color: "#111111" }}>Rapport matinal personnalisé</p>
+                  <p className="text-xs" style={{ color: "#666666" }}>Vos RDV du jour dans le briefing Telegram</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 rounded-lg" style={{ background: "#FFFFFF" }}>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "#E3F2FD" }}>
+                  <Clock className="h-4 w-4" style={{ color: "#14B4E6" }} />
+                </div>
+                <div>
+                  <p className="font-medium text-sm" style={{ color: "#111111" }}>Synchronisation en temps réel</p>
+                  <p className="text-xs" style={{ color: "#666666" }}>Mise à jour automatique toutes les 2 minutes</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Info */}
+          <div className="rounded-xl p-4" style={{ background: "#E3F2FD", border: "1px solid #14B4E6" }}>
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: "#14B4E6" }} />
+              <div>
+                <p className="font-medium" style={{ color: "#0D47A1" }}>Connexion personnelle</p>
+                <p className="text-sm mt-1" style={{ color: "#1565C0" }}>
+                  Cette connexion est propre à votre compte utilisateur. Chaque administrateur peut connecter
+                  son propre calendrier O365 pour recevoir ses rappels personnalisés.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
