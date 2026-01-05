@@ -10,6 +10,30 @@ interface CalendarEvent {
   end: { dateTime: string; timeZone: string }
   location?: { displayName?: string }
   isAllDay: boolean
+  onlineMeeting?: { joinUrl?: string }
+  webLink?: string
+  bodyPreview?: string
+}
+
+// Parse datetime with timezone awareness
+// Microsoft Graph returns local time when Prefer header is set
+// We need to treat it as Europe/Paris time
+function parseDateTimeWithTz(dateTime: string, timeZone: string): Date {
+  // If dateTime doesn't include Z or offset, append the timezone offset
+  // Europe/Paris is UTC+1 in winter, UTC+2 in summer
+  if (!dateTime.includes("Z") && !dateTime.includes("+") && !dateTime.includes("-", 10)) {
+    // Get current offset for Paris timezone
+    const testDate = new Date(dateTime + "Z") // Parse as UTC first
+    const parisOffset = new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" })
+    const utcDate = new Date().toLocaleString("en-US", { timeZone: "UTC" })
+    const offsetMs = new Date(parisOffset).getTime() - new Date(utcDate).getTime()
+    const offsetHours = Math.round(offsetMs / 3600000)
+
+    // For Europe/Paris in winter (CET), offset is +1
+    // The dateTime from Graph is already in Paris time, so we subtract the offset to get UTC
+    return new Date(new Date(dateTime + "Z").getTime() - offsetHours * 3600000)
+  }
+  return new Date(dateTime)
 }
 
 // Get O365 tenant settings
@@ -46,7 +70,7 @@ async function refreshUserToken(
         client_secret: tenantSettings.clientSecret,
         refresh_token: refreshToken,
         grant_type: "refresh_token",
-        scope: "https://graph.microsoft.com/Calendars.Read offline_access",
+        scope: "https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read offline_access",
       }),
     })
 
@@ -109,7 +133,8 @@ export async function GET() {
     const now = new Date()
     const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
 
-    const calendarUrl = `https://graph.microsoft.com/v1.0/me/calendarview?startDateTime=${now.toISOString()}&endDateTime=${endOfDay.toISOString()}&$orderby=start/dateTime&$top=1&$select=subject,start,end,location,isAllDay`
+    // Request more fields including online meeting info
+    const calendarUrl = `https://graph.microsoft.com/v1.0/me/calendarview?startDateTime=${now.toISOString()}&endDateTime=${endOfDay.toISOString()}&$orderby=start/dateTime&$top=1&$select=subject,start,end,location,isAllDay,onlineMeeting,webLink,bodyPreview`
 
     const response = await fetch(calendarUrl, {
       headers: {
@@ -131,8 +156,11 @@ export async function GET() {
     }
 
     const nextEvent = events[0]
-    const startTime = new Date(nextEvent.start.dateTime)
-    const endTime = new Date(nextEvent.end.dateTime)
+
+    // Parse dates with timezone awareness
+    const startTime = parseDateTimeWithTz(nextEvent.start.dateTime, nextEvent.start.timeZone)
+    const endTime = parseDateTimeWithTz(nextEvent.end.dateTime, nextEvent.end.timeZone)
+    const startsInMinutes = Math.round((startTime.getTime() - now.getTime()) / 60000)
 
     return NextResponse.json({
       nextEvent: {
@@ -141,7 +169,11 @@ export async function GET() {
         endTime: endTime.toISOString(),
         location: nextEvent.location?.displayName || null,
         isAllDay: nextEvent.isAllDay,
-        startsIn: Math.round((startTime.getTime() - now.getTime()) / 60000), // minutes
+        startsIn: startsInMinutes,
+        // Additional fields for modal
+        onlineMeetingUrl: nextEvent.onlineMeeting?.joinUrl || null,
+        webLink: nextEvent.webLink || null,
+        bodyPreview: nextEvent.bodyPreview || null,
       },
     })
   } catch (error) {

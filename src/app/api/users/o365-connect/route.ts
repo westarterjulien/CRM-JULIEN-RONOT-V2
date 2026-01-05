@@ -48,9 +48,9 @@ export async function GET() {
       `https://login.microsoftonline.com/${settings.o365TenantId}/oauth2/v2.0/authorize`
     )
 
-    // Only Calendar read permission for user-level connection
+    // Calendar read/write permission for user-level connection
     const scope = [
-      "https://graph.microsoft.com/Calendars.Read",
+      "https://graph.microsoft.com/Calendars.ReadWrite",
       "https://graph.microsoft.com/User.Read",
       "offline_access",
     ].join(" ")

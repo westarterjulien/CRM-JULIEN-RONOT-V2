@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { Bell, Search, FileText, UserPlus, CreditCard, AlertCircle, X, Menu, Ticket, RefreshCw, Package, Globe, Clock, Command, StickyNote, Calendar } from "lucide-react"
+import { Bell, Search, FileText, UserPlus, CreditCard, AlertCircle, X, Menu, Ticket, RefreshCw, Package, Globe, Clock, Command, StickyNote, Calendar, Video, MapPin, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -77,11 +77,16 @@ export function Header({ onMenuClick }: HeaderProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [eventModalOpen, setEventModalOpen] = useState(false)
   const [nextEvent, setNextEvent] = useState<{
     subject: string
     startTime: string
+    endTime: string
     startsIn: number
     location: string | null
+    onlineMeetingUrl: string | null
+    webLink: string | null
+    bodyPreview: string | null
   } | null>(null)
 
   // Keyboard shortcut for search (Cmd+K or Ctrl+K)
@@ -230,8 +235,9 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         {/* Next Calendar Event */}
         {nextEvent && (
-          <div
-            className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-[10px] max-w-[200px]"
+          <button
+            onClick={() => setEventModalOpen(true)}
+            className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-[10px] max-w-[200px] cursor-pointer transition-all hover:shadow-md"
             style={{
               background: nextEvent.startsIn <= 15 ? '#FEF3CD' : '#E3F2FD',
               border: `1px solid ${nextEvent.startsIn <= 15 ? '#F0783C' : '#0064FA'}20`,
@@ -241,7 +247,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               className="h-4 w-4 flex-shrink-0"
               style={{ color: nextEvent.startsIn <= 15 ? '#F0783C' : '#0064FA' }}
             />
-            <div className="flex flex-col min-w-0">
+            <div className="flex flex-col min-w-0 text-left">
               <span
                 className="text-[11px] font-medium truncate"
                 style={{ color: nextEvent.startsIn <= 15 ? '#F0783C' : '#0064FA' }}
@@ -255,7 +261,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                 {nextEvent.subject.length > 20 ? nextEvent.subject.substring(0, 20) + '...' : nextEvent.subject}
               </span>
             </div>
-          </div>
+          </button>
         )}
 
         {/* Notifications */}
@@ -390,6 +396,130 @@ export function Header({ onMenuClick }: HeaderProps) {
 
       {/* Search Modal */}
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+
+      {/* Calendar Event Modal */}
+      {eventModalOpen && nextEvent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setEventModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-[16px] w-full max-w-md mx-4 p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div
+                  className="p-2.5 rounded-[10px]"
+                  style={{
+                    background: nextEvent.startsIn <= 15 ? '#FEF3CD' : '#E3F2FD',
+                  }}
+                >
+                  <Calendar
+                    className="h-5 w-5"
+                    style={{ color: nextEvent.startsIn <= 15 ? '#F0783C' : '#0064FA' }}
+                  />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold" style={{ color: '#111111' }}>
+                    {nextEvent.subject}
+                  </h3>
+                  <p className="text-sm" style={{ color: '#666666' }}>
+                    {nextEvent.startsIn <= 0 ? 'En cours' : `Dans ${nextEvent.startsIn} minutes`}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEventModalOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" style={{ color: '#666666' }} />
+              </button>
+            </div>
+
+            {/* Time */}
+            <div className="flex items-center gap-3 py-3 border-t border-gray-100">
+              <Clock className="h-4 w-4" style={{ color: '#666666' }} />
+              <div>
+                <p className="text-sm font-medium" style={{ color: '#111111' }}>
+                  {new Date(nextEvent.startTime).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  {' - '}
+                  {new Date(nextEvent.endTime).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                </p>
+                <p className="text-xs" style={{ color: '#999999' }}>
+                  {new Date(nextEvent.startTime).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </p>
+              </div>
+            </div>
+
+            {/* Location */}
+            {nextEvent.location && (
+              <div className="flex items-center gap-3 py-3 border-t border-gray-100">
+                <MapPin className="h-4 w-4" style={{ color: '#666666' }} />
+                <p className="text-sm" style={{ color: '#111111' }}>{nextEvent.location}</p>
+              </div>
+            )}
+
+            {/* Online Meeting Link */}
+            {nextEvent.onlineMeetingUrl && (
+              <div className="flex items-center gap-3 py-3 border-t border-gray-100">
+                <Video className="h-4 w-4" style={{ color: '#14B4E6' }} />
+                <a
+                  href={nextEvent.onlineMeetingUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm font-medium hover:underline"
+                  style={{ color: '#14B4E6' }}
+                >
+                  Rejoindre la réunion
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            )}
+
+            {/* Description */}
+            {nextEvent.bodyPreview && (
+              <div className="py-3 border-t border-gray-100">
+                <p className="text-xs font-medium mb-1" style={{ color: '#999999' }}>Description</p>
+                <p className="text-sm" style={{ color: '#666666' }}>
+                  {nextEvent.bodyPreview.length > 200
+                    ? nextEvent.bodyPreview.substring(0, 200) + '...'
+                    : nextEvent.bodyPreview}
+                </p>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">
+              {nextEvent.onlineMeetingUrl && (
+                <a
+                  href={nextEvent.onlineMeetingUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[10px] text-sm font-medium text-white"
+                  style={{ background: '#14B4E6' }}
+                >
+                  <Video className="h-4 w-4" />
+                  Rejoindre
+                </a>
+              )}
+              {nextEvent.webLink && (
+                <a
+                  href={nextEvent.webLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[10px] text-sm font-medium border"
+                  style={{ color: '#666666', borderColor: '#DDDDDD' }}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Outlook
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   )
 }

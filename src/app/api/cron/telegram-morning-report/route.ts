@@ -77,7 +77,7 @@ async function refreshUserO365Token(
         client_secret: tenantSettings.clientSecret,
         refresh_token: user.o365RefreshToken,
         grant_type: "refresh_token",
-        scope: "https://graph.microsoft.com/Calendars.Read offline_access",
+        scope: "https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read offline_access",
       }),
     })
 
@@ -123,6 +123,35 @@ async function getValidUserO365Token(
   return refreshUserO365Token(user, tenantSettings)
 }
 
+// Get today's date boundaries in Paris timezone
+function getTodayBoundariesParis(): { startOfDay: Date; endOfDay: Date } {
+  // Get current time in Paris
+  const nowParis = new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" })
+  const parisDate = new Date(nowParis)
+
+  // Create start and end of day in Paris time
+  const year = parisDate.getFullYear()
+  const month = parisDate.getMonth()
+  const day = parisDate.getDate()
+
+  // Start of day in Paris = midnight Paris time
+  // We need to convert this to UTC for the API call
+  // Paris is UTC+1 in winter, UTC+2 in summer
+  const parisOffsetMs = new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" })
+  const utcMs = new Date().toLocaleString("en-US", { timeZone: "UTC" })
+  const offsetMs = new Date(parisOffsetMs).getTime() - new Date(utcMs).getTime()
+
+  // Create Paris midnight and convert to UTC
+  const startOfDayParis = new Date(year, month, day, 0, 0, 0)
+  const endOfDayParis = new Date(year, month, day, 23, 59, 59)
+
+  // Subtract Paris offset to get UTC equivalent
+  const startOfDayUTC = new Date(startOfDayParis.getTime() - offsetMs)
+  const endOfDayUTC = new Date(endOfDayParis.getTime() - offsetMs)
+
+  return { startOfDay: startOfDayUTC, endOfDay: endOfDayUTC }
+}
+
 // Get today's calendar events for a specific user
 async function getCalendarEventsForUser(
   user: UserWithO365,
@@ -132,9 +161,9 @@ async function getCalendarEventsForUser(
   if (!accessToken) return []
 
   try {
-    const now = new Date()
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
-    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+    const { startOfDay, endOfDay } = getTodayBoundariesParis()
+
+    console.log(`[Morning Report] Fetching events from ${startOfDay.toISOString()} to ${endOfDay.toISOString()}`)
 
     const calendarUrl = `https://graph.microsoft.com/v1.0/me/calendarview?startDateTime=${startOfDay.toISOString()}&endDateTime=${endOfDay.toISOString()}&$orderby=start/dateTime&$top=20&$select=subject,start,end,location,isAllDay,organizer,attendees`
 
@@ -151,6 +180,7 @@ async function getCalendarEventsForUser(
     }
 
     const data = await response.json()
+    console.log(`[Morning Report] API returned ${data.value?.length || 0} events`)
     return data.value || []
   } catch (error) {
     console.error(`[Morning Report] Calendar fetch error for user ${user.id}:`, error)
@@ -378,13 +408,15 @@ async function generateMorningReport(calendarEvents: CalendarEvent[] = []): Prom
   if (calendarEvents.length > 0) {
     report += `\n*Agenda:*\n`
     calendarEvents.forEach(event => {
-      const startTime = new Date(event.start.dateTime)
-      const endTime = new Date(event.end.dateTime)
+      // The dateTime from Graph API is already in Paris time (due to Prefer header)
+      // but without timezone suffix, so we parse it as local time string
+      const startTimeStr = event.start.dateTime.substring(11, 16) // "HH:MM"
+      const endTimeStr = event.end.dateTime.substring(11, 16) // "HH:MM"
 
       if (event.isAllDay) {
         report += `  - Journée: ${event.subject}\n`
       } else {
-        report += `  - ${formatTime(startTime)} - ${formatTime(endTime)}: ${event.subject}\n`
+        report += `  - ${startTimeStr} - ${endTimeStr}: ${event.subject}\n`
       }
 
       if (event.location?.displayName) {

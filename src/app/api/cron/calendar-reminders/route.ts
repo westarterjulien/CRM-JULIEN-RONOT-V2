@@ -61,7 +61,7 @@ async function refreshUserToken(
         client_secret: tenantSettings.clientSecret,
         refresh_token: user.o365RefreshToken,
         grant_type: "refresh_token",
-        scope: "https://graph.microsoft.com/Calendars.Read offline_access",
+        scope: "https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read offline_access",
       }),
     })
 

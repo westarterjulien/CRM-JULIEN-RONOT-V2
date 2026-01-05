@@ -107,6 +107,187 @@ async function getSettings() {
   return cachedSettings
 }
 
+// O365 Calendar helpers
+interface O365TokenResult {
+  accessToken: string
+  userEmail: string
+}
+
+async function getO365TenantConfig(): Promise<{
+  enabled: boolean
+  clientId: string
+  clientSecret: string
+  tenantId: string
+} | null> {
+  const tenant = await prisma.tenants.findFirst({ where: { id: DEFAULT_TENANT_ID } })
+  if (!tenant?.settings) return null
+
+  try {
+    const settings = JSON.parse(tenant.settings)
+    if (!settings.o365Enabled || !settings.o365ClientId || !settings.o365ClientSecret || !settings.o365TenantId) {
+      return null
+    }
+    return {
+      enabled: settings.o365Enabled,
+      clientId: settings.o365ClientId,
+      clientSecret: settings.o365ClientSecret,
+      tenantId: settings.o365TenantId,
+    }
+  } catch {
+    return null
+  }
+}
+
+async function refreshO365Token(
+  userId: bigint,
+  refreshToken: string,
+  config: { clientId: string; clientSecret: string; tenantId: string }
+): Promise<string | null> {
+  try {
+    const tokenUrl = `https://login.microsoftonline.com/${config.tenantId}/oauth2/v2.0/token`
+    const response = await fetch(tokenUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: config.clientId,
+        client_secret: config.clientSecret,
+        refresh_token: refreshToken,
+        grant_type: "refresh_token",
+        scope: "https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read offline_access",
+      }),
+    })
+
+    if (!response.ok) return null
+
+    const data = await response.json()
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        o365AccessToken: data.access_token,
+        o365RefreshToken: data.refresh_token || refreshToken,
+        o365TokenExpiresAt: new Date(Date.now() + data.expires_in * 1000),
+      },
+    })
+
+    return data.access_token
+  } catch {
+    return null
+  }
+}
+
+async function getO365TokenForTelegramUser(chatId: number): Promise<O365TokenResult | null> {
+  // Find user by telegram chat ID
+  const user = await prisma.user.findFirst({
+    where: { telegramChatId: BigInt(chatId) },
+    select: {
+      id: true,
+      o365AccessToken: true,
+      o365RefreshToken: true,
+      o365TokenExpiresAt: true,
+      o365ConnectedEmail: true,
+    },
+  })
+
+  if (!user?.o365RefreshToken) return null
+
+  const config = await getO365TenantConfig()
+  if (!config) return null
+
+  // Check if token is valid (with 5 min margin)
+  if (user.o365AccessToken && user.o365TokenExpiresAt && user.o365TokenExpiresAt > new Date(Date.now() + 5 * 60 * 1000)) {
+    return { accessToken: user.o365AccessToken, userEmail: user.o365ConnectedEmail || "" }
+  }
+
+  // Refresh the token
+  const newToken = await refreshO365Token(user.id, user.o365RefreshToken, config)
+  if (!newToken) return null
+
+  return { accessToken: newToken, userEmail: user.o365ConnectedEmail || "" }
+}
+
+// Parse natural language date/time to ISO format
+function parseDateTime(dateStr: string): Date {
+  const now = new Date()
+  const lower = dateStr.toLowerCase().trim()
+
+  // Handle "demain"
+  if (lower.includes("demain")) {
+    const tomorrow = new Date(now)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+
+    // Extract time
+    const timeMatch = lower.match(/(\d{1,2})[h:](\d{0,2})?/)
+    if (timeMatch) {
+      tomorrow.setHours(parseInt(timeMatch[1]), parseInt(timeMatch[2] || "0"), 0, 0)
+    } else {
+      tomorrow.setHours(9, 0, 0, 0) // Default 9h
+    }
+    return tomorrow
+  }
+
+  // Handle "aujourd'hui"
+  if (lower.includes("aujourd")) {
+    const today = new Date(now)
+    const timeMatch = lower.match(/(\d{1,2})[h:](\d{0,2})?/)
+    if (timeMatch) {
+      today.setHours(parseInt(timeMatch[1]), parseInt(timeMatch[2] || "0"), 0, 0)
+    }
+    return today
+  }
+
+  // Handle "lundi", "mardi", etc.
+  const days = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"]
+  for (let i = 0; i < days.length; i++) {
+    if (lower.includes(days[i])) {
+      const target = new Date(now)
+      const currentDay = now.getDay()
+      let daysUntil = i - currentDay
+      if (daysUntil <= 0) daysUntil += 7 // Next week
+      target.setDate(target.getDate() + daysUntil)
+
+      const timeMatch = lower.match(/(\d{1,2})[h:](\d{0,2})?/)
+      if (timeMatch) {
+        target.setHours(parseInt(timeMatch[1]), parseInt(timeMatch[2] || "0"), 0, 0)
+      } else {
+        target.setHours(9, 0, 0, 0)
+      }
+      return target
+    }
+  }
+
+  // Try ISO format or standard date parsing
+  const parsed = new Date(dateStr)
+  if (!isNaN(parsed.getTime())) {
+    return parsed
+  }
+
+  // Fallback: try to parse "YYYY-MM-DD HH:MM" or "DD/MM/YYYY HH:MM"
+  const frMatch = lower.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(\d{1,2})[h:](\d{0,2})?/)
+  if (frMatch) {
+    return new Date(
+      parseInt(frMatch[3]),
+      parseInt(frMatch[2]) - 1,
+      parseInt(frMatch[1]),
+      parseInt(frMatch[4]),
+      parseInt(frMatch[5] || "0")
+    )
+  }
+
+  const isoMatch = lower.match(/(\d{4})-(\d{2})-(\d{2})\s*(\d{1,2})[h:](\d{0,2})?/)
+  if (isoMatch) {
+    return new Date(
+      parseInt(isoMatch[1]),
+      parseInt(isoMatch[2]) - 1,
+      parseInt(isoMatch[3]),
+      parseInt(isoMatch[4]),
+      parseInt(isoMatch[5] || "0")
+    )
+  }
+
+  // Default: return input as-is (will likely fail)
+  return new Date(dateStr)
+}
+
 // Telegram API helpers
 async function sendMessage(botToken: string, chatId: number, text: string) {
   await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -864,10 +1045,44 @@ const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       },
     },
   },
+  // ===== CALENDAR =====
+  {
+    type: "function",
+    function: {
+      name: "create_calendar_event",
+      description: "Créer un rendez-vous/événement dans le calendrier Outlook de l'utilisateur",
+      parameters: {
+        type: "object",
+        properties: {
+          subject: { type: "string", description: "Titre/sujet du rendez-vous" },
+          startDate: { type: "string", description: "Date et heure de début (format ISO ou naturel comme '2025-01-15 14:00' ou 'demain 15h')" },
+          endDate: { type: "string", description: "Date et heure de fin (optionnel, par défaut 1h après le début)" },
+          location: { type: "string", description: "Lieu du rendez-vous (optionnel)" },
+          description: { type: "string", description: "Description/notes du rendez-vous (optionnel)" },
+          clientName: { type: "string", description: "Nom du client pour lier le RDV (optionnel)" },
+          attendees: { type: "array", items: { type: "string" }, description: "Emails des participants à inviter (optionnel)" },
+        },
+        required: ["subject", "startDate"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_calendar_events",
+      description: "Voir les prochains rendez-vous du calendrier Outlook",
+      parameters: {
+        type: "object",
+        properties: {
+          days: { type: "number", description: "Nombre de jours à afficher (défaut: 7)" },
+        },
+      },
+    },
+  },
 ]
 
 // Tool execution functions
-async function executeToolCall(name: string, args: Record<string, unknown>): Promise<string> {
+async function executeToolCall(name: string, args: Record<string, unknown>, chatId?: number): Promise<string> {
   try {
     switch (name) {
       // ===== CLIENTS =====
@@ -2655,6 +2870,179 @@ Ouvre le lien PDF et utilise "Imprimer > Enregistrer en PDF" pour télécharger.
         })
       }
 
+      // ===== CALENDAR =====
+      case "create_calendar_event": {
+        if (!chatId) {
+          return JSON.stringify({ error: "Contexte utilisateur manquant" })
+        }
+
+        const tokenResult = await getO365TokenForTelegramUser(chatId)
+        if (!tokenResult) {
+          return JSON.stringify({
+            error: "Calendrier non connecté. Connecte ton calendrier O365 dans les paramètres du CRM (Settings > Mon Calendrier).",
+          })
+        }
+
+        // Parse dates
+        const startDate = parseDateTime(args.startDate as string)
+        let endDate: Date
+
+        if (args.endDate) {
+          endDate = parseDateTime(args.endDate as string)
+        } else {
+          // Default: 1 hour duration
+          endDate = new Date(startDate.getTime() + 60 * 60 * 1000)
+        }
+
+        // Build event payload for Microsoft Graph
+        const eventPayload: Record<string, unknown> = {
+          subject: args.subject as string,
+          start: {
+            dateTime: startDate.toISOString(),
+            timeZone: "Europe/Paris",
+          },
+          end: {
+            dateTime: endDate.toISOString(),
+            timeZone: "Europe/Paris",
+          },
+        }
+
+        if (args.location) {
+          eventPayload.location = { displayName: args.location as string }
+        }
+
+        if (args.description) {
+          eventPayload.body = {
+            contentType: "text",
+            content: args.description as string,
+          }
+        }
+
+        if (args.attendees && Array.isArray(args.attendees)) {
+          eventPayload.attendees = (args.attendees as string[]).map((email) => ({
+            emailAddress: { address: email },
+            type: "required",
+          }))
+        }
+
+        // Create event via Microsoft Graph API
+        const createResponse = await fetch("https://graph.microsoft.com/v1.0/me/events", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${tokenResult.accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(eventPayload),
+        })
+
+        if (!createResponse.ok) {
+          const errorData = await createResponse.json()
+          console.error("[Calendar] Create event error:", errorData)
+          return JSON.stringify({ error: "Erreur lors de la création du RDV: " + (errorData.error?.message || "Erreur inconnue") })
+        }
+
+        const createdEvent = await createResponse.json()
+
+        // Format response
+        const formattedStart = new Intl.DateTimeFormat("fr-FR", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(startDate)
+
+        // If client name provided, create a note linking the event
+        if (args.clientName) {
+          const client = await prisma.client.findFirst({
+            where: { tenant_id: DEFAULT_TENANT_ID, companyName: { contains: args.clientName as string } },
+          })
+          if (client) {
+            const note = await prisma.note.create({
+              data: {
+                tenant_id: DEFAULT_TENANT_ID,
+                createdBy: DEFAULT_USER_ID,
+                content: `RDV Outlook: ${args.subject} - ${formattedStart}`,
+                type: "note",
+              },
+            })
+            await prisma.noteEntityLink.create({
+              data: { noteId: note.id, entityType: "client", entityId: client.id },
+            })
+          }
+        }
+
+        return JSON.stringify({
+          success: true,
+          event: {
+            id: createdEvent.id,
+            subject: createdEvent.subject,
+            start: formattedStart,
+            location: args.location || null,
+            webLink: createdEvent.webLink,
+          },
+          message: `RDV créé: ${args.subject} le ${formattedStart}`,
+        })
+      }
+
+      case "get_calendar_events": {
+        if (!chatId) {
+          return JSON.stringify({ error: "Contexte utilisateur manquant" })
+        }
+
+        const tokenResult = await getO365TokenForTelegramUser(chatId)
+        if (!tokenResult) {
+          return JSON.stringify({
+            error: "Calendrier non connecté. Connecte ton calendrier O365 dans les paramètres du CRM.",
+          })
+        }
+
+        const days = (args.days as number) || 7
+        const now = new Date()
+        const endDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000)
+
+        const calendarUrl = `https://graph.microsoft.com/v1.0/me/calendarview?startDateTime=${now.toISOString()}&endDateTime=${endDate.toISOString()}&$orderby=start/dateTime&$top=20&$select=subject,start,end,location,isAllDay,onlineMeeting`
+
+        const response = await fetch(calendarUrl, {
+          headers: {
+            Authorization: `Bearer ${tokenResult.accessToken}`,
+            Prefer: 'outlook.timezone="Europe/Paris"',
+          },
+        })
+
+        if (!response.ok) {
+          return JSON.stringify({ error: "Erreur lors de la récupération des événements" })
+        }
+
+        const data = await response.json()
+        const events = (data.value || []).map((event: {
+          subject: string
+          start: { dateTime: string }
+          end: { dateTime: string }
+          location?: { displayName?: string }
+          isAllDay: boolean
+          onlineMeeting?: { joinUrl?: string }
+        }) => {
+          const startTime = event.start.dateTime.substring(0, 16).replace("T", " ")
+          const endTime = event.end.dateTime.substring(11, 16)
+
+          return {
+            subject: event.subject,
+            start: startTime,
+            end: endTime,
+            location: event.location?.displayName || null,
+            isAllDay: event.isAllDay,
+            hasOnlineMeeting: !!event.onlineMeeting?.joinUrl,
+          }
+        })
+
+        return JSON.stringify({
+          events,
+          count: events.length,
+          period: `${days} jours`,
+        })
+      }
+
       default:
         return JSON.stringify({ error: "Fonction inconnue" })
     }
@@ -2682,6 +3070,7 @@ CAPACITÉS COMPLÈTES:
 🧾 FACTURES: créer, lister, impayées, marquer payée, envoyer, export PDF
 🏦 TRÉSORERIE: soldes comptes, transactions récentes
 📅 ABONNEMENTS: lister, renouvellements à venir
+📆 CALENDRIER O365: créer RDV ("rdv avec X demain 14h"), voir agenda des 7 prochains jours
 🌐 DOMAINES: lister, domaines qui expirent
 🎫 TICKETS: lister, créer, changer statut
 📑 CONTRATS: lister les contrats et leurs signataires
@@ -2800,7 +3189,7 @@ async function processWithAI(
       for (const toolCall of assistantMessage.tool_calls) {
         if (toolCall.type !== "function") continue
         const args = JSON.parse(toolCall.function.arguments)
-        const result = await executeToolCall(toolCall.function.name, args)
+        const result = await executeToolCall(toolCall.function.name, args, chatId)
         toolResults.push({
           role: "tool",
           tool_call_id: toolCall.id,
