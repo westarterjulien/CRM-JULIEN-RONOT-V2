@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { DateDisplay } from "@/components/ui/date-display"
+import { TodayCalendar } from "@/components/dashboard/today-calendar"
 
 async function getDashboardStats() {
   const now = new Date()
@@ -308,8 +309,11 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Recent Lists */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Today's Calendar + Recent Lists */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Today's Calendar */}
+        <TodayCalendar />
+
         {/* Recent Invoices */}
         <div className="p-6 rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#110c22]/80 to-[#0d0a1c]/80 backdrop-blur-xl">
           <div className="flex items-center justify-between mb-5">
