@@ -79,6 +79,11 @@ const gocardlessEnvironmentOptions: SelectOption[] = [
   { value: "production", label: "Production", color: "#28B95F" },
 ]
 
+const revolutEnvironmentOptions: SelectOption[] = [
+  { value: "sandbox", label: "Sandbox (Test)", color: "#F59E0B" },
+  { value: "production", label: "Production", color: "#28B95F" },
+]
+
 interface SettingsData {
   id: string
   name: string
@@ -167,6 +172,11 @@ interface SettingsData {
     telegramBotToken?: string
     telegramAllowedUsers?: string
     telegramWebhookConfigured?: boolean
+    // Revolut
+    revolutEnabled?: boolean
+    revolutClientId?: string
+    revolutApiKey?: string
+    revolutEnvironment?: string
   }
 }
 
@@ -319,6 +329,14 @@ function SettingsContent() {
   const [configuringWebhook, setConfiguringWebhook] = useState(false)
   const [telegramTestResult, setTelegramTestResult] = useState<{ type: "success" | "error"; message: string; botName?: string } | null>(null)
 
+  // Revolut
+  const [revolutEnabled, setRevolutEnabled] = useState(false)
+  const [revolutClientId, setRevolutClientId] = useState("")
+  const [revolutApiKey, setRevolutApiKey] = useState("")
+  const [revolutEnvironment, setRevolutEnvironment] = useState<"sandbox" | "production">("sandbox")
+  const [testingRevolut, setTestingRevolut] = useState(false)
+  const [revolutTestResult, setRevolutTestResult] = useState<{ type: "success" | "error"; message: string } | null>(null)
+
   const [showIntegrationSecrets, setShowIntegrationSecrets] = useState(false)
   const [integrationTestResult, setIntegrationTestResult] = useState<{ type: "success" | "error"; message: string } | null>(null)
   const [activeIntegrationTab, setActiveIntegrationTab] = useState("slack")
@@ -439,6 +457,12 @@ function SettingsContent() {
         setTelegramBotToken(data.settings?.telegramBotToken || "")
         setTelegramAllowedUsers(data.settings?.telegramAllowedUsers || "")
         setTelegramWebhookConfigured(data.settings?.telegramWebhookConfigured || false)
+
+        // Revolut
+        setRevolutEnabled(data.settings?.revolutEnabled || false)
+        setRevolutClientId(data.settings?.revolutClientId || "")
+        setRevolutApiKey(data.settings?.revolutApiKey || "")
+        setRevolutEnvironment((data.settings?.revolutEnvironment as "sandbox" | "production") || "sandbox")
       }
     } catch (error) {
       console.error("Error fetching settings:", error)
@@ -1551,6 +1575,10 @@ function SettingsContent() {
             <button onClick={() => setActiveIntegrationTab("telegram")} className="flex-1 min-w-[80px] px-3 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-all" style={{ background: activeIntegrationTab === "telegram" ? "#FFFFFF" : "transparent", color: activeIntegrationTab === "telegram" ? "#0088CC" : "#666666", boxShadow: activeIntegrationTab === "telegram" ? "0 1px 3px rgba(0,0,0,0.08)" : "none" }}>
               <Send className="h-4 w-4" />
               <span className="hidden sm:inline">Telegram</span>
+            </button>
+            <button onClick={() => setActiveIntegrationTab("revolut")} className="flex-1 min-w-[80px] px-3 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-all" style={{ background: activeIntegrationTab === "revolut" ? "#FFFFFF" : "transparent", color: activeIntegrationTab === "revolut" ? "#191C1F" : "#666666", boxShadow: activeIntegrationTab === "revolut" ? "0 1px 3px rgba(0,0,0,0.08)" : "none" }}>
+              <CreditCard className="h-4 w-4" />
+              <span className="hidden sm:inline">Revolut</span>
             </button>
           </div>
 
@@ -2733,6 +2761,128 @@ function SettingsContent() {
                   className="px-4 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-50"
                   style={{ background: "#0088CC", color: "#FFFFFF" }}
                 >
+                  {saving === "integrations" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Enregistrer
+                </button>
+                {saved === "integrations" && <span className="flex items-center gap-1 text-sm" style={{ color: "#28B95F" }}><CheckCircle className="h-4 w-4" />Enregistré</span>}
+              </div>
+            </div>
+          )}
+
+          {/* Revolut Settings */}
+          {activeIntegrationTab === "revolut" && (
+            <div className="rounded-2xl p-6 w-full space-y-6" style={{ background: "#FFFFFF", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "#F5F5F5" }}>
+                    <CreditCard className="h-5 w-5" style={{ color: "#191C1F" }} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold" style={{ color: "#111111" }}>Revolut Business</h2>
+                    <p className="text-sm" style={{ color: "#666666" }}>Synchronisez vos transactions bancaires Revolut</p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" checked={revolutEnabled} onChange={(e) => setRevolutEnabled(e.target.checked)} className="sr-only peer" />
+                  <div className="w-11 h-6 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all" style={{ background: revolutEnabled ? "#191C1F" : "#CCCCCC" }} />
+                </label>
+              </div>
+
+              {revolutEnabled && (
+                <>
+                  <div className="rounded-xl p-4" style={{ background: "#F5F5F5", border: "1px solid #E0E0E0" }}>
+                    <h4 className="font-medium mb-2" style={{ color: "#191C1F" }}>Configuration Revolut Business API</h4>
+                    <ol className="text-sm space-y-1 list-decimal list-inside" style={{ color: "#666666" }}>
+                      <li>Connectez-vous à votre <a href="https://business.revolut.com/settings/api" target="_blank" rel="noopener noreferrer" className="underline text-blue-600">compte Revolut Business</a></li>
+                      <li>Allez dans Settings &gt; API et créez une nouvelle clé API</li>
+                      <li>Générez un Client ID et une API Key</li>
+                      <li>Copiez les informations ci-dessous</li>
+                    </ol>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium" style={{ color: "#444444" }}>Environnement</label>
+                      <StyledSelect
+                        value={revolutEnvironment}
+                        onChange={(v) => setRevolutEnvironment(v as "sandbox" | "production")}
+                        options={revolutEnvironmentOptions}
+                        placeholder="Environnement"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium" style={{ color: "#444444" }}>Client ID *</label>
+                      <div className="relative">
+                        <input type={showIntegrationSecrets ? "text" : "password"} value={revolutClientId} onChange={(e) => setRevolutClientId(e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className="w-full px-4 py-2.5 pr-12 rounded-xl text-sm font-mono outline-none focus:ring-2 focus:ring-[#191C1F]/20" style={{ background: "#F5F5F7", border: "1px solid #EEEEEE", color: "#111111" }} />
+                        <button type="button" onClick={() => setShowIntegrationSecrets(!showIntegrationSecrets)} className="absolute right-3 top-1/2 -translate-y-1/2 hover:opacity-70" style={{ color: "#999999" }}>
+                          {showIntegrationSecrets ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium" style={{ color: "#444444" }}>API Key *</label>
+                      <div className="relative">
+                        <input type={showIntegrationSecrets ? "text" : "password"} value={revolutApiKey} onChange={(e) => setRevolutApiKey(e.target.value)} placeholder="••••••••••••••••" className="w-full px-4 py-2.5 pr-12 rounded-xl text-sm font-mono outline-none focus:ring-2 focus:ring-[#191C1F]/20" style={{ background: "#F5F5F7", border: "1px solid #EEEEEE", color: "#111111" }} />
+                        <button type="button" onClick={() => setShowIntegrationSecrets(!showIntegrationSecrets)} className="absolute right-3 top-1/2 -translate-y-1/2 hover:opacity-70" style={{ color: "#999999" }}>
+                          {showIntegrationSecrets ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={async () => {
+                        if (!revolutClientId || !revolutApiKey) {
+                          setRevolutTestResult({ type: "error", message: "Client ID et API Key requis" })
+                          return
+                        }
+                        setTestingRevolut(true)
+                        setRevolutTestResult(null)
+                        try {
+                          const baseUrl = revolutEnvironment === "production"
+                            ? "https://b2b.revolut.com/api/1.0"
+                            : "https://sandbox-b2b.revolut.com/api/1.0"
+                          const res = await fetch(`${baseUrl}/accounts`, {
+                            headers: {
+                              "Authorization": `Bearer ${revolutApiKey}`,
+                              "Content-Type": "application/json"
+                            }
+                          })
+                          if (res.ok) {
+                            const data = await res.json()
+                            const accountCount = Array.isArray(data) ? data.length : 0
+                            setRevolutTestResult({ type: "success", message: `Connexion réussie! ${accountCount} compte(s) trouvé(s).` })
+                          } else {
+                            const error = await res.json().catch(() => ({}))
+                            setRevolutTestResult({ type: "error", message: error.message || `Erreur ${res.status}` })
+                          }
+                        } catch (err) {
+                          setRevolutTestResult({ type: "error", message: "Erreur de connexion à l'API Revolut" })
+                        } finally {
+                          setTestingRevolut(false)
+                        }
+                      }}
+                      disabled={testingRevolut || !revolutClientId || !revolutApiKey}
+                      className="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-opacity disabled:opacity-50"
+                      style={{ background: "#F5F5F5", color: "#191C1F" }}
+                    >
+                      {testingRevolut ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
+                      Tester la connexion
+                    </button>
+
+                    {revolutTestResult && (
+                      <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${revolutTestResult.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+                        {revolutTestResult.type === "success" ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                        {revolutTestResult.message}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              <div className="flex flex-wrap items-center gap-3 pt-4" style={{ borderTop: "1px solid #EEEEEE" }}>
+                <button onClick={() => handleSave("integrations", { revolutEnabled, revolutClientId, revolutApiKey, revolutEnvironment })} disabled={saving === "integrations"} className="px-4 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-50" style={{ background: "#191C1F", color: "#FFFFFF" }}>
                   {saving === "integrations" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Enregistrer
                 </button>
