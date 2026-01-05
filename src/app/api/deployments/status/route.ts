@@ -44,7 +44,7 @@ export async function GET() {
           const response = await fetch(`${server.url}/api/trpc/project.all`, {
             method: "GET",
             headers: {
-              "Authorization": `Bearer ${server.token}`,
+              "x-api-key": server.token,
               "Content-Type": "application/json",
             },
           })
@@ -72,7 +72,7 @@ export async function GET() {
                       {
                         method: "GET",
                         headers: {
-                          "Authorization": `Bearer ${server.token}`,
+                          "x-api-key": server.token,
                           "Content-Type": "application/json",
                         },
                       }
