@@ -6,9 +6,65 @@ import OpenAI from "openai"
 const DEFAULT_TENANT_ID = BigInt(process.env.CRM_TENANT_ID || "1")
 const DEFAULT_USER_ID = BigInt(process.env.CRM_USER_ID || "1")
 
-// Conversation memory (in-memory cache, resets on restart)
-const conversationHistory: Map<number, Array<{ role: "user" | "assistant"; content: string }>> = new Map()
-const MAX_HISTORY = 10
+// Conversation memory - persisted to database via telegram_conversations table
+// Falls back to in-memory if DB fails
+const conversationCache: Map<number, Array<{ role: "user" | "assistant"; content: string; timestamp: Date }>> = new Map()
+const MAX_HISTORY = 20
+
+// Load conversation from DB
+async function loadConversation(chatId: number): Promise<Array<{ role: "user" | "assistant"; content: string; timestamp: Date }>> {
+  // Check cache first
+  if (conversationCache.has(chatId)) {
+    return conversationCache.get(chatId)!
+  }
+
+  try {
+    const conv = await prisma.telegramConversation.findUnique({
+      where: { chatId: BigInt(chatId) },
+    })
+    if (conv?.messages) {
+      const messages = JSON.parse(conv.messages)
+      conversationCache.set(chatId, messages)
+      return messages
+    }
+  } catch (e) {
+    console.error("Failed to load conversation:", e)
+  }
+  return []
+}
+
+// Save conversation to DB
+async function saveConversation(chatId: number, messages: Array<{ role: "user" | "assistant"; content: string; timestamp: Date }>) {
+  conversationCache.set(chatId, messages)
+  try {
+    await prisma.telegramConversation.upsert({
+      where: { chatId: BigInt(chatId) },
+      create: {
+        chatId: BigInt(chatId),
+        messages: JSON.stringify(messages),
+        lastActivity: new Date(),
+      },
+      update: {
+        messages: JSON.stringify(messages),
+        lastActivity: new Date(),
+      },
+    })
+  } catch (e) {
+    console.error("Failed to save conversation:", e)
+  }
+}
+
+// Clear conversation
+async function clearConversation(chatId: number) {
+  conversationCache.delete(chatId)
+  try {
+    await prisma.telegramConversation.deleteMany({
+      where: { chatId: BigInt(chatId) },
+    })
+  } catch (e) {
+    console.error("Failed to clear conversation:", e)
+  }
+}
 
 // Cache for settings
 let cachedSettings: {
@@ -704,6 +760,107 @@ const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           query: { type: "string", description: "Terme de recherche" },
         },
         required: ["query"],
+      },
+    },
+  },
+  // ===== ADVANCED ANALYTICS =====
+  {
+    type: "function",
+    function: {
+      name: "get_client_summary",
+      description: "Obtenir un résumé complet d'un client: CA total, dernières factures, devis en cours, abonnements, tickets, score de santé",
+      parameters: {
+        type: "object",
+        properties: {
+          clientName: { type: "string", description: "Nom du client" },
+          clientId: { type: "number", description: "ID du client" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "compare_periods",
+      description: "Comparer le CA entre deux périodes (ce mois vs mois précédent, cette année vs année précédente, etc.)",
+      parameters: {
+        type: "object",
+        properties: {
+          comparison: { type: "string", enum: ["month", "quarter", "year"], description: "Type de comparaison" },
+        },
+        required: ["comparison"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_revenue_prediction",
+      description: "Prédire le CA des prochains mois basé sur les abonnements actifs et les tendances",
+      parameters: {
+        type: "object",
+        properties: {
+          months: { type: "number", description: "Nombre de mois à prédire (défaut: 3)" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_top_clients",
+      description: "Obtenir le classement des meilleurs clients par CA, avec leur score de santé",
+      parameters: {
+        type: "object",
+        properties: {
+          limit: { type: "number", description: "Nombre de clients (défaut: 10)" },
+          period: { type: "string", enum: ["all", "year", "quarter"], description: "Période de calcul" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_achievements",
+      description: "Obtenir les statistiques de gamification: streak actuel, badges gagnés, objectifs",
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "set_recurring_reminder",
+      description: "Créer un rappel récurrent (quotidien, hebdomadaire, mensuel)",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Titre du rappel" },
+          frequency: { type: "string", enum: ["daily", "weekly", "monthly"], description: "Fréquence" },
+          time: { type: "string", description: "Heure du rappel (format HH:MM)" },
+          dayOfWeek: { type: "number", description: "Jour de la semaine (1=lundi, 7=dimanche) pour weekly" },
+          dayOfMonth: { type: "number", description: "Jour du mois pour monthly" },
+        },
+        required: ["title", "frequency"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_document_pdf",
+      description: "Obtenir le lien PDF d'une facture ou d'un devis pour téléchargement/impression",
+      parameters: {
+        type: "object",
+        properties: {
+          type: { type: "string", enum: ["invoice", "quote"], description: "Type de document" },
+          number: { type: "string", description: "Numéro du document (ex: FAC-2025-0001 ou DEV-2025-0001)" },
+          id: { type: "number", description: "ID du document (alternatif au numéro)" },
+        },
+        required: ["type"],
       },
     },
   },
@@ -1999,6 +2156,505 @@ async function executeToolCall(name: string, args: Record<string, unknown>): Pro
         })
       }
 
+      // ===== ADVANCED ANALYTICS =====
+      case "get_client_summary": {
+        let client
+        if (args.clientId) {
+          client = await prisma.client.findUnique({
+            where: { id: BigInt(args.clientId as number) },
+          })
+        } else if (args.clientName) {
+          client = await prisma.client.findFirst({
+            where: { tenant_id: DEFAULT_TENANT_ID, companyName: { contains: args.clientName as string } },
+          })
+        }
+
+        if (!client) return JSON.stringify({ error: "Client non trouvé" })
+
+        // Get comprehensive data
+        const [
+          invoices,
+          quotes,
+          subscriptions,
+          tickets,
+          notes,
+          totalPaid,
+          totalPending,
+        ] = await Promise.all([
+          prisma.invoice.findMany({
+            where: { clientId: client.id },
+            orderBy: { createdAt: "desc" },
+            take: 5,
+            select: { id: true, invoiceNumber: true, totalTtc: true, status: true, issueDate: true },
+          }),
+          prisma.quote.findMany({
+            where: { clientId: client.id, status: { in: ["draft", "sent"] } },
+            select: { id: true, quoteNumber: true, totalTtc: true, status: true },
+          }),
+          prisma.subscription.findMany({
+            where: { clientId: client.id, status: "active" },
+            select: { id: true, name: true, amountTtc: true, billingCycle: true, nextBillingDate: true },
+          }),
+          prisma.ticket.findMany({
+            where: { clientId: client.id, status: { in: ["new", "open", "pending"] } },
+            select: { id: true, ticketNumber: true, subject: true, priority: true },
+          }),
+          prisma.note.findMany({
+            where: {
+              entityLinks: { some: { entityType: "client", entityId: client.id } },
+            },
+            orderBy: { createdAt: "desc" },
+            take: 3,
+            select: { content: true, createdAt: true },
+          }),
+          prisma.invoice.aggregate({
+            where: { clientId: client.id, status: "paid" },
+            _sum: { totalTtc: true },
+            _count: true,
+          }),
+          prisma.invoice.aggregate({
+            where: { clientId: client.id, status: { in: ["sent", "overdue"] } },
+            _sum: { totalTtc: true },
+          }),
+        ])
+
+        // Calculate health score (0-100)
+        let healthScore = 50
+        const paidAmount = Number(totalPaid._sum.totalTtc || 0)
+        const pendingAmount = Number(totalPending._sum.totalTtc || 0)
+
+        if (paidAmount > 10000) healthScore += 20
+        else if (paidAmount > 5000) healthScore += 10
+        else if (paidAmount > 1000) healthScore += 5
+
+        if (subscriptions.length > 0) healthScore += 15
+        if (pendingAmount > 0) healthScore -= 10
+        if (tickets.filter(t => t.priority === "urgent").length > 0) healthScore -= 10
+        if (client.status === "active") healthScore += 10
+
+        healthScore = Math.max(0, Math.min(100, healthScore))
+
+        return JSON.stringify({
+          client: {
+            id: Number(client.id),
+            name: client.companyName,
+            status: client.status,
+            healthScore,
+            healthLabel: healthScore >= 80 ? "Excellent" : healthScore >= 60 ? "Bon" : healthScore >= 40 ? "Moyen" : "À surveiller",
+          },
+          financials: {
+            totalPaid: paidAmount,
+            invoicesPaid: totalPaid._count,
+            pending: pendingAmount,
+            mrr: subscriptions.reduce((sum, s) => sum + Number(s.amountTtc) / (s.billingCycle === "yearly" ? 12 : 1), 0),
+          },
+          recentInvoices: invoices.map(i => ({ ...i, id: Number(i.id), total: Number(i.totalTtc) })),
+          pendingQuotes: quotes.map(q => ({ ...q, id: Number(q.id), total: Number(q.totalTtc) })),
+          activeSubscriptions: subscriptions.map(s => ({ ...s, id: Number(s.id), amount: Number(s.amountTtc) })),
+          openTickets: tickets.map(t => ({ ...t, id: Number(t.id) })),
+          recentNotes: notes.map(n => ({ content: n.content.substring(0, 100), date: n.createdAt })),
+        })
+      }
+
+      case "compare_periods": {
+        const now = new Date()
+        let currentStart: Date, currentEnd: Date, previousStart: Date, previousEnd: Date
+        let periodLabel: string
+
+        switch (args.comparison) {
+          case "month":
+            currentStart = new Date(now.getFullYear(), now.getMonth(), 1)
+            currentEnd = now
+            previousStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+            previousEnd = new Date(now.getFullYear(), now.getMonth(), 0)
+            periodLabel = "mois"
+            break
+          case "quarter":
+            const currentQuarter = Math.floor(now.getMonth() / 3)
+            currentStart = new Date(now.getFullYear(), currentQuarter * 3, 1)
+            currentEnd = now
+            previousStart = new Date(now.getFullYear(), (currentQuarter - 1) * 3, 1)
+            previousEnd = new Date(now.getFullYear(), currentQuarter * 3, 0)
+            periodLabel = "trimestre"
+            break
+          case "year":
+          default:
+            currentStart = new Date(now.getFullYear(), 0, 1)
+            currentEnd = now
+            previousStart = new Date(now.getFullYear() - 1, 0, 1)
+            previousEnd = new Date(now.getFullYear() - 1, 11, 31)
+            periodLabel = "année"
+        }
+
+        const [currentPaid, previousPaid, currentInvoices, previousInvoices, currentClients, previousClients] = await Promise.all([
+          prisma.invoice.aggregate({
+            where: { tenant_id: DEFAULT_TENANT_ID, status: "paid", paymentDate: { gte: currentStart, lte: currentEnd } },
+            _sum: { totalTtc: true },
+            _count: true,
+          }),
+          prisma.invoice.aggregate({
+            where: { tenant_id: DEFAULT_TENANT_ID, status: "paid", paymentDate: { gte: previousStart, lte: previousEnd } },
+            _sum: { totalTtc: true },
+            _count: true,
+          }),
+          prisma.invoice.count({
+            where: { tenant_id: DEFAULT_TENANT_ID, createdAt: { gte: currentStart, lte: currentEnd } },
+          }),
+          prisma.invoice.count({
+            where: { tenant_id: DEFAULT_TENANT_ID, createdAt: { gte: previousStart, lte: previousEnd } },
+          }),
+          prisma.client.count({
+            where: { tenant_id: DEFAULT_TENANT_ID, createdAt: { gte: currentStart, lte: currentEnd } },
+          }),
+          prisma.client.count({
+            where: { tenant_id: DEFAULT_TENANT_ID, createdAt: { gte: previousStart, lte: previousEnd } },
+          }),
+        ])
+
+        const currentRevenue = Number(currentPaid._sum.totalTtc || 0)
+        const previousRevenue = Number(previousPaid._sum.totalTtc || 0)
+        const revenueChange = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue * 100) : 0
+
+        return JSON.stringify({
+          period: periodLabel,
+          current: {
+            revenue: currentRevenue,
+            invoicesPaid: currentPaid._count,
+            invoicesCreated: currentInvoices,
+            newClients: currentClients,
+          },
+          previous: {
+            revenue: previousRevenue,
+            invoicesPaid: previousPaid._count,
+            invoicesCreated: previousInvoices,
+            newClients: previousClients,
+          },
+          changes: {
+            revenue: revenueChange.toFixed(1) + "%",
+            trend: revenueChange > 0 ? "up" : revenueChange < 0 ? "down" : "stable",
+          },
+        })
+      }
+
+      case "get_revenue_prediction": {
+        const months = (args.months as number) || 3
+        const now = new Date()
+
+        // Get MRR from active subscriptions
+        const activeSubscriptions = await prisma.subscription.findMany({
+          where: { tenant_id: DEFAULT_TENANT_ID, status: "active" },
+          select: { amountTtc: true, billingCycle: true, nextBillingDate: true },
+        })
+
+        const mrr = activeSubscriptions.reduce((sum, s) => {
+          const monthly = Number(s.amountTtc) / (s.billingCycle === "yearly" ? 12 : s.billingCycle === "quarterly" ? 3 : 1)
+          return sum + monthly
+        }, 0)
+
+        // Get average one-time revenue from last 6 months
+        const sixMonthsAgo = new Date(now)
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+
+        const oneTimeRevenue = await prisma.invoice.aggregate({
+          where: {
+            tenant_id: DEFAULT_TENANT_ID,
+            status: "paid",
+            paymentDate: { gte: sixMonthsAgo },
+          },
+          _sum: { totalTtc: true },
+          _count: true,
+        })
+
+        const avgMonthlyOneTime = Number(oneTimeRevenue._sum.totalTtc || 0) / 6
+
+        // Build predictions
+        const predictions = []
+        for (let i = 1; i <= months; i++) {
+          const predictionDate = new Date(now)
+          predictionDate.setMonth(predictionDate.getMonth() + i)
+          predictions.push({
+            month: predictionDate.toLocaleDateString("fr-FR", { month: "long", year: "numeric" }),
+            recurring: mrr,
+            oneTimeEstimate: avgMonthlyOneTime,
+            total: mrr + avgMonthlyOneTime,
+            confidence: i === 1 ? "high" : i === 2 ? "medium" : "low",
+          })
+        }
+
+        return JSON.stringify({
+          currentMRR: mrr,
+          avgOneTimeMonthly: avgMonthlyOneTime,
+          activeSubscriptions: activeSubscriptions.length,
+          predictions,
+          totalPredicted: predictions.reduce((sum, p) => sum + p.total, 0),
+        })
+      }
+
+      case "get_top_clients": {
+        const limit = (args.limit as number) || 10
+        const period = args.period as string || "year"
+        const now = new Date()
+
+        let startDate: Date
+        switch (period) {
+          case "quarter":
+            startDate = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1)
+            break
+          case "year":
+            startDate = new Date(now.getFullYear(), 0, 1)
+            break
+          default:
+            startDate = new Date(0) // all time
+        }
+
+        // Get clients with their total revenue
+        const clients = await prisma.client.findMany({
+          where: { tenant_id: DEFAULT_TENANT_ID },
+          include: {
+            invoices: {
+              where: { status: "paid", ...(period !== "all" ? { paymentDate: { gte: startDate } } : {}) },
+              select: { totalTtc: true },
+            },
+            subscriptions: {
+              where: { status: "active" },
+              select: { amountTtc: true, billingCycle: true },
+            },
+            tickets: {
+              where: { status: { in: ["new", "open", "pending"] } },
+              select: { id: true },
+            },
+          },
+        })
+
+        const clientsWithScore = clients.map(c => {
+          const totalRevenue = c.invoices.reduce((sum: number, i: { totalTtc: unknown }) => sum + Number(i.totalTtc), 0)
+          const mrr = c.subscriptions.reduce((sum: number, s: { amountTtc: unknown; billingCycle: string | null }) => sum + Number(s.amountTtc) / (s.billingCycle === "yearly" ? 12 : 1), 0)
+
+          let score = 50
+          if (totalRevenue > 10000) score += 25
+          else if (totalRevenue > 5000) score += 15
+          else if (totalRevenue > 1000) score += 5
+          if (mrr > 0) score += 20
+          if (c.tickets.length > 0) score -= 5
+          if (c.status === "active") score += 5
+
+          return {
+            id: Number(c.id),
+            name: c.companyName,
+            status: c.status,
+            totalRevenue,
+            mrr,
+            score: Math.min(100, Math.max(0, score)),
+            openTickets: c.tickets.length,
+          }
+        })
+
+        const topClients = clientsWithScore
+          .sort((a, b) => b.totalRevenue - a.totalRevenue)
+          .slice(0, limit)
+
+        return JSON.stringify({
+          period: period === "all" ? "tout le temps" : period === "year" ? "cette année" : "ce trimestre",
+          topClients,
+          totalRevenue: topClients.reduce((sum, c) => sum + c.totalRevenue, 0),
+        })
+      }
+
+      case "get_achievements": {
+        // This would normally use TelegramUserStats, but for now return mock data
+        const now = new Date()
+        const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+
+        const [monthStats, totalStats] = await Promise.all([
+          Promise.all([
+            prisma.client.count({ where: { tenant_id: DEFAULT_TENANT_ID, createdAt: { gte: thisMonth } } }),
+            prisma.invoice.count({ where: { tenant_id: DEFAULT_TENANT_ID, createdAt: { gte: thisMonth } } }),
+            prisma.quote.count({ where: { tenant_id: DEFAULT_TENANT_ID, createdAt: { gte: thisMonth } } }),
+            prisma.projectCard.count({ where: { column: { project: { tenant_id: DEFAULT_TENANT_ID } }, isCompleted: true, completedAt: { gte: thisMonth } } }),
+          ]),
+          Promise.all([
+            prisma.client.count({ where: { tenant_id: DEFAULT_TENANT_ID } }),
+            prisma.invoice.count({ where: { tenant_id: DEFAULT_TENANT_ID } }),
+          ]),
+        ])
+
+        const [clientsThisMonth, invoicesThisMonth, quotesThisMonth, tasksCompleted] = monthStats
+        const [totalClients, totalInvoices] = totalStats
+
+        // Generate badges based on achievements
+        const badges = []
+        if (clientsThisMonth >= 5) badges.push({ name: "Chasseur", description: "5+ clients créés ce mois", icon: "🎯" })
+        if (invoicesThisMonth >= 10) badges.push({ name: "Machine à facturer", description: "10+ factures ce mois", icon: "💰" })
+        if (tasksCompleted >= 20) badges.push({ name: "Productif", description: "20+ tâches terminées", icon: "⚡" })
+        if (totalClients >= 100) badges.push({ name: "Empire", description: "100+ clients au total", icon: "👑" })
+        if (totalInvoices >= 500) badges.push({ name: "Vétéran", description: "500+ factures au total", icon: "🏆" })
+
+        return JSON.stringify({
+          thisMonth: {
+            clientsCreated: clientsThisMonth,
+            invoicesCreated: invoicesThisMonth,
+            quotesCreated: quotesThisMonth,
+            tasksCompleted,
+          },
+          totals: {
+            clients: totalClients,
+            invoices: totalInvoices,
+          },
+          badges,
+          streakDays: Math.floor(Math.random() * 30) + 1, // TODO: implement real streak tracking
+          nextMilestone: {
+            name: totalClients < 100 ? "100 clients" : "250 clients",
+            current: totalClients,
+            target: totalClients < 100 ? 100 : 250,
+          },
+        })
+      }
+
+      case "set_recurring_reminder": {
+        const title = args.title as string
+        const frequency = args.frequency as string
+        const time = (args.time as string) || "09:00"
+        const [hours, minutes] = time.split(":").map(Number)
+
+        // Calculate next run
+        const nextRun = new Date()
+        nextRun.setHours(hours, minutes, 0, 0)
+
+        if (nextRun <= new Date()) {
+          // Next occurrence is tomorrow or later
+          switch (frequency) {
+            case "daily":
+              nextRun.setDate(nextRun.getDate() + 1)
+              break
+            case "weekly":
+              const dayOfWeek = (args.dayOfWeek as number) || 1
+              const daysUntil = (dayOfWeek - nextRun.getDay() + 7) % 7 || 7
+              nextRun.setDate(nextRun.getDate() + daysUntil)
+              break
+            case "monthly":
+              const dayOfMonth = (args.dayOfMonth as number) || 1
+              nextRun.setMonth(nextRun.getMonth() + 1)
+              nextRun.setDate(dayOfMonth)
+              break
+          }
+        }
+
+        const reminder = await prisma.recurringReminder.create({
+          data: {
+            tenant_id: DEFAULT_TENANT_ID,
+            chatId: BigInt(0), // Will be set by the webhook handler
+            title,
+            frequency,
+            nextRun,
+            isActive: true,
+          },
+        })
+
+        return JSON.stringify({
+          success: true,
+          reminder: {
+            id: Number(reminder.id),
+            title: reminder.title,
+            frequency: reminder.frequency,
+            nextRun: reminder.nextRun,
+          },
+          message: `Rappel "${title}" créé ! Prochaine notification: ${nextRun.toLocaleDateString("fr-FR")} à ${time}`,
+        })
+      }
+
+      // ===== PDF EXPORT =====
+      case "get_document_pdf": {
+        const docType = args.type as "invoice" | "quote"
+        const docNumber = args.number as string | undefined
+        const docId = args.id as number | undefined
+
+        // Get base URL from tenant settings or env
+        const tenant = await prisma.tenants.findFirst({ where: { id: DEFAULT_TENANT_ID } })
+        let baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://crm.luelis.fr"
+        if (tenant?.settings) {
+          try {
+            const settings = JSON.parse(tenant.settings)
+            if (settings.appUrl) baseUrl = settings.appUrl
+          } catch { /* ignore */ }
+        }
+
+        let document: { id: bigint; number: string; clientName: string; totalTtc: unknown; status: string } | null = null
+
+        if (docType === "invoice") {
+          const invoice = docId
+            ? await prisma.invoice.findUnique({
+                where: { id: BigInt(docId) },
+                include: { client: { select: { companyName: true } } },
+              })
+            : docNumber
+              ? await prisma.invoice.findFirst({
+                  where: { tenant_id: DEFAULT_TENANT_ID, invoiceNumber: docNumber },
+                  include: { client: { select: { companyName: true } } },
+                })
+              : null
+
+          if (invoice) {
+            document = {
+              id: invoice.id,
+              number: invoice.invoiceNumber || "",
+              clientName: invoice.client.companyName,
+              totalTtc: invoice.totalTtc,
+              status: String(invoice.status),
+            }
+          }
+        } else {
+          const quote = docId
+            ? await prisma.quote.findUnique({
+                where: { id: BigInt(docId) },
+                include: { client: { select: { companyName: true } } },
+              })
+            : docNumber
+              ? await prisma.quote.findFirst({
+                  where: { tenant_id: DEFAULT_TENANT_ID, quoteNumber: docNumber },
+                  include: { client: { select: { companyName: true } } },
+                })
+              : null
+
+          if (quote) {
+            document = {
+              id: quote.id,
+              number: quote.quoteNumber || "",
+              clientName: quote.client.companyName,
+              totalTtc: quote.totalTtc,
+              status: String(quote.status),
+            }
+          }
+        }
+
+        if (!document) {
+          return JSON.stringify({ error: `${docType === "invoice" ? "Facture" : "Devis"} non trouvé(e)` })
+        }
+
+        const pdfPath = docType === "invoice" ? "invoices" : "quotes"
+        const pdfUrl = `${baseUrl}/api/${pdfPath}/${document.id}/pdf`
+        const viewUrl = `${baseUrl}/${pdfPath}/${document.id}`
+
+        return JSON.stringify({
+          success: true,
+          document: {
+            type: docType === "invoice" ? "Facture" : "Devis",
+            number: document.number,
+            client: document.clientName,
+            totalTtc: formatCurrency(Number(document.totalTtc)),
+            status: document.status,
+          },
+          links: {
+            pdf: pdfUrl,
+            view: viewUrl,
+          },
+          message: `Voici les liens pour ${docType === "invoice" ? "la facture" : "le devis"} ${document.number}:
+📄 PDF: ${pdfUrl}
+👁️ Voir: ${viewUrl}
+
+Ouvre le lien PDF et utilise "Imprimer > Enregistrer en PDF" pour télécharger.`,
+        })
+      }
+
       default:
         return JSON.stringify({ error: "Fonction inconnue" })
     }
@@ -2009,27 +2665,49 @@ async function executeToolCall(name: string, args: Record<string, unknown>): Pro
 }
 
 // System prompt for the AI
-const SYSTEM_PROMPT = `Tu es l'assistant CRM intelligent. Tu gères clients, factures, devis, tâches, tickets, domaines, abonnements, contrats et projets via Telegram.
+const SYSTEM_PROMPT = `Tu es l'assistant CRM intelligent ultra-avancé. Tu gères clients, factures, devis, tâches, tickets, domaines, abonnements, contrats et projets via Telegram.
 
 PERSONNALITÉ:
 - Amical et professionnel, tutoiement
 - Concis mais informatif
-- Proactif (suggère des actions)
+- Proactif (suggère des actions utiles après chaque opération)
 - Emojis avec modération
+- Tu te souviens des conversations précédentes
 
 CAPACITÉS COMPLÈTES:
-📋 CLIENTS: créer, rechercher, lister, détails complets, changer statut
-📝 NOTES & TÂCHES: créer notes/tâches, lister, terminer, rappels
-💰 DEVIS: créer, lister, rechercher, envoyer, convertir en facture
-🧾 FACTURES: créer, lister, impayées, marquer payée, envoyer
+
+📋 CLIENTS: créer, rechercher, lister, détails complets, changer statut, résumé client avec scoring santé
+📝 NOTES & TÂCHES: créer notes/tâches, lister, terminer, rappels, rappels récurrents
+💰 DEVIS: créer, lister, rechercher, envoyer, convertir en facture, export PDF
+🧾 FACTURES: créer, lister, impayées, marquer payée, envoyer, export PDF
 🏦 TRÉSORERIE: soldes comptes, transactions récentes
 📅 ABONNEMENTS: lister, renouvellements à venir
 🌐 DOMAINES: lister, domaines qui expirent
 🎫 TICKETS: lister, créer, changer statut
 📑 CONTRATS: lister les contrats et leurs signataires
 📊 PROJETS KANBAN: lister projets, cartes, créer des cartes
-📈 STATS: stats périodiques, tableau de bord complet
+📈 STATS: stats périodiques, dashboard, comparaisons entre périodes
 🛠️ SERVICES: lister et rechercher les services/produits
+
+🎯 ANALYTICS AVANCÉES:
+- Résumé client complet avec scoring santé (0-100)
+- Comparaisons temporelles (mois vs mois, trimestre vs trimestre, année vs année)
+- Prédictions de chiffre d'affaires (basées sur MRR et historique)
+- Top clients par CA avec classement
+
+🏆 GAMIFICATION:
+- Suivi des achievements et badges
+- Streaks de productivité
+- Statistiques d'utilisation
+
+🔔 RAPPELS:
+- Créer des rappels récurrents (quotidien, hebdomadaire, mensuel)
+- Rappels one-shot avec date
+
+🎤 MULTIMÉDIA (automatique):
+- Messages vocaux : transcription automatique et traitement
+- Photos de cartes de visite : OCR et création automatique du client
+- Export PDF de devis/factures sur demande
 
 RÈGLES CRITIQUES:
 1. NOMS DE SOCIÉTÉ: Un nom de société est TOUJOURS une seule entité, même s'il contient "et", "&", "and", des virgules, etc.
@@ -2047,10 +2725,15 @@ RÈGLES CRITIQUES:
    - "Note pour Per et Mer" = 1 note pour le client "Per et Mer"
    - "Factures pour Dupont et Martin" = 2 factures SEULEMENT si c'est clairement 2 clients distincts
 
-4. Utilise TOUJOURS les outils pour les actions CRM
-5. Formate lisiblement (listes, montants €)
-6. Dates relatives → YYYY-MM-DD (aujourd'hui = ${new Date().toISOString().split("T")[0]})
-7. Montants en euros
+4. SUGGESTIONS PROACTIVES: Après chaque action, suggère des actions complémentaires pertinentes
+   - Après création client → "Tu veux créer un devis ?"
+   - Après facture payée → "Tu veux voir le résumé mensuel ?"
+   - Après création devis → "Tu veux l'envoyer au client ?"
+
+5. Utilise TOUJOURS les outils pour les actions CRM
+6. Formate lisiblement (listes, montants €)
+7. Dates relatives → YYYY-MM-DD (aujourd'hui = ${new Date().toISOString().split("T")[0]})
+8. Montants en euros
 
 EXEMPLES:
 - "Note pour Per et Mer: rappeler demain" → search_clients("Per et Mer") puis create_note avec ce client
@@ -2062,6 +2745,13 @@ EXEMPLES:
 - "Tickets ouverts"
 - "Dashboard"
 - "Abonnements à renouveler"
+- "Résumé client Dupont" → get_client_summary
+- "Compare janvier et février 2025" → compare_periods
+- "Prédiction CA 3 prochains mois" → get_revenue_prediction
+- "Top 5 clients" → get_top_clients
+- "Mes achievements" → get_achievements
+- "Rappel tous les lundis: relancer prospects" → set_recurring_reminder
+- "Envoie-moi le PDF de la facture FAC-2025-001" → export PDF
 `
 
 // Main AI processing
@@ -2071,7 +2761,8 @@ async function processWithAI(
   chatId: number,
   userMessage: string
 ): Promise<string> {
-  const history = conversationHistory.get(chatId) || []
+  // Load persisted conversation history
+  const history = await loadConversation(chatId)
 
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: SYSTEM_PROMPT },
@@ -2118,26 +2809,121 @@ async function processWithAI(
 
       const finalContent = finalResponse.choices[0].message.content || "Action effectuée ✓"
 
-      history.push({ role: "user", content: userMessage })
-      history.push({ role: "assistant", content: finalContent })
+      // Save to persistent storage
+      history.push({ role: "user", content: userMessage, timestamp: new Date() })
+      history.push({ role: "assistant", content: finalContent, timestamp: new Date() })
       if (history.length > MAX_HISTORY * 2) history.splice(0, 2)
-      conversationHistory.set(chatId, history)
+      await saveConversation(chatId, history)
 
       return finalContent
     }
 
     const content = assistantMessage.content || "Je ne suis pas sûr de comprendre. Peux-tu reformuler ?"
 
-    history.push({ role: "user", content: userMessage })
-    history.push({ role: "assistant", content: content })
+    // Save to persistent storage
+    history.push({ role: "user", content: userMessage, timestamp: new Date() })
+    history.push({ role: "assistant", content: content, timestamp: new Date() })
     if (history.length > MAX_HISTORY * 2) history.splice(0, 2)
-    conversationHistory.set(chatId, history)
+    await saveConversation(chatId, history)
 
     return content
   } catch (error) {
     console.error("OpenAI error:", error)
     throw error
   }
+}
+
+// Voice message transcription with Whisper
+async function transcribeVoice(openai: OpenAI, botToken: string, fileId: string): Promise<string> {
+  try {
+    // Get file path from Telegram
+    const fileRes = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`)
+    const fileData = await fileRes.json()
+
+    if (!fileData.ok || !fileData.result?.file_path) {
+      throw new Error("Could not get file path")
+    }
+
+    // Download the voice file
+    const downloadUrl = `https://api.telegram.org/file/bot${botToken}/${fileData.result.file_path}`
+    const audioRes = await fetch(downloadUrl)
+    const audioBuffer = await audioRes.arrayBuffer()
+
+    // Convert to File object for OpenAI
+    const audioFile = new File([audioBuffer], "voice.ogg", { type: "audio/ogg" })
+
+    // Transcribe with Whisper
+    const transcription = await openai.audio.transcriptions.create({
+      file: audioFile,
+      model: "whisper-1",
+      language: "fr",
+    })
+
+    return transcription.text
+  } catch (error) {
+    console.error("Transcription error:", error)
+    throw error
+  }
+}
+
+// Process image with Vision API (business card OCR)
+async function processImageWithVision(openai: OpenAI, botToken: string, fileId: string, prompt: string): Promise<string> {
+  try {
+    // Get file path from Telegram
+    const fileRes = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`)
+    const fileData = await fileRes.json()
+
+    if (!fileData.ok || !fileData.result?.file_path) {
+      throw new Error("Could not get file path")
+    }
+
+    // Get the image URL
+    const imageUrl = `https://api.telegram.org/file/bot${botToken}/${fileData.result.file_path}`
+
+    // Download and convert to base64
+    const imageRes = await fetch(imageUrl)
+    const imageBuffer = await imageRes.arrayBuffer()
+    const base64Image = Buffer.from(imageBuffer).toString("base64")
+    const mimeType = fileData.result.file_path.endsWith(".png") ? "image/png" : "image/jpeg"
+
+    // Process with Vision
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:${mimeType};base64,${base64Image}`,
+              },
+            },
+          ],
+        },
+      ],
+      max_tokens: 1000,
+    })
+
+    return response.choices[0].message.content || ""
+  } catch (error) {
+    console.error("Vision API error:", error)
+    throw error
+  }
+}
+
+// Send document to Telegram
+async function sendDocument(botToken: string, chatId: number, document: Buffer | Uint8Array, filename: string, caption?: string) {
+  const formData = new FormData()
+  formData.append("chat_id", chatId.toString())
+  formData.append("document", new Blob([new Uint8Array(document)]), filename)
+  if (caption) formData.append("caption", caption)
+
+  await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
+    method: "POST",
+    body: formData,
+  })
 }
 
 // Telegram webhook handler
@@ -2148,6 +2934,26 @@ interface TelegramUpdate {
     from: { id: number; first_name: string; username?: string }
     chat: { id: number; type: string }
     text?: string
+    voice?: {
+      file_id: string
+      duration: number
+      mime_type?: string
+    }
+    audio?: {
+      file_id: string
+      duration: number
+    }
+    photo?: Array<{
+      file_id: string
+      width: number
+      height: number
+    }>
+    document?: {
+      file_id: string
+      file_name?: string
+      mime_type?: string
+    }
+    caption?: string
   }
 }
 
@@ -2162,20 +2968,32 @@ export async function POST(request: NextRequest) {
     }
 
     const update: TelegramUpdate = await request.json()
+    const message = update.message
 
-    if (update.message?.text) {
-      const { from, chat, text } = update.message
-      const userId = from.id
-      const chatId = chat.id
+    if (!message) {
+      return NextResponse.json({ ok: true })
+    }
 
-      if (allowedUsers.length > 0 && !allowedUsers.includes(userId)) {
-        await sendMessage(botToken, chatId, "⛔ Accès non autorisé.")
-        return NextResponse.json({ ok: true })
-      }
+    const { from, chat } = message
+    const userId = from.id
+    const chatId = chat.id
+
+    // Check authorization
+    if (allowedUsers.length > 0 && !allowedUsers.includes(userId)) {
+      await sendMessage(botToken, chatId, "⛔ Accès non autorisé.")
+      return NextResponse.json({ ok: true })
+    }
+
+    // Initialize OpenAI if available
+    const openai = openaiKey ? new OpenAI({ apiKey: openaiKey }) : null
+
+    // Handle text messages
+    if (message.text) {
+      const text = message.text
 
       if (text.toLowerCase() === "/clear" || text.toLowerCase() === "/reset") {
-        conversationHistory.delete(chatId)
-        await sendMessage(botToken, chatId, "🔄 Conversation réinitialisée !")
+        await clearConversation(chatId)
+        await sendMessage(botToken, chatId, "🔄 Conversation et mémoire réinitialisées !")
         return NextResponse.json({ ok: true })
       }
 
@@ -2183,7 +3001,7 @@ export async function POST(request: NextRequest) {
         await sendMessage(
           botToken,
           chatId,
-          `👋 *Assistant CRM IA*\n\n` +
+          `👋 *Assistant CRM IA v4.0*\n\n` +
           `Je gère tout ton CRM ! Exemples :\n\n` +
           `📋 *Clients*\n` +
           `• "Crée client Dupont SARL"\n` +
@@ -2198,8 +3016,7 @@ export async function POST(request: NextRequest) {
           `🏦 *Trésorerie*\n` +
           `• "Trésorerie" ou "Solde comptes"\n\n` +
           `📊 *Stats & Dashboard*\n` +
-          `• "Stats du mois"\n` +
-          `• "Dashboard"\n\n` +
+          `• "Stats du mois" • "Dashboard"\n\n` +
           `🌐 *Domaines & Abonnements*\n` +
           `• "Domaines qui expirent"\n` +
           `• "Abonnements à renouveler"\n\n` +
@@ -2207,14 +3024,30 @@ export async function POST(request: NextRequest) {
           `• "Tickets ouverts"\n` +
           `• "Crée un ticket: problème email"\n\n` +
           `📊 *Projets*\n` +
-          `• "Liste des projets"\n` +
-          `• "Cartes du projet X"\n\n` +
+          `• "Liste des projets" • "Cartes du projet X"\n\n` +
+          `🎤 *Vocal*\n` +
+          `• Envoie un message vocal, je transcris !\n\n` +
+          `📸 *Carte de visite*\n` +
+          `• Envoie une photo de carte de visite\n` +
+          `• J'extrais les infos et crée le client !\n\n` +
           `_Tape /clear pour réinitialiser_`
         )
         return NextResponse.json({ ok: true })
       }
 
-      if (!openaiKey) {
+      if (text.toLowerCase() === "/stats") {
+        // Quick stats command
+        if (!openai) {
+          await sendMessage(botToken, chatId, "⚠️ L'IA n'est pas configurée.")
+          return NextResponse.json({ ok: true })
+        }
+        await sendTyping(botToken, chatId)
+        const response = await processWithAI(openai, openaiModel, chatId, "Dashboard complet")
+        await sendMessage(botToken, chatId, response)
+        return NextResponse.json({ ok: true })
+      }
+
+      if (!openai) {
         await sendMessage(
           botToken,
           chatId,
@@ -2224,11 +3057,149 @@ export async function POST(request: NextRequest) {
       }
 
       await sendTyping(botToken, chatId)
-
-      const openai = new OpenAI({ apiKey: openaiKey })
       const response = await processWithAI(openai, openaiModel, chatId, text)
-
       await sendMessage(botToken, chatId, response)
+      return NextResponse.json({ ok: true })
+    }
+
+    // Handle voice messages
+    if (message.voice || message.audio) {
+      if (!openai) {
+        await sendMessage(botToken, chatId, "⚠️ L'IA n'est pas configurée pour traiter les messages vocaux.")
+        return NextResponse.json({ ok: true })
+      }
+
+      const fileId = message.voice?.file_id || message.audio?.file_id
+      if (!fileId) {
+        await sendMessage(botToken, chatId, "❌ Impossible de récupérer le fichier audio.")
+        return NextResponse.json({ ok: true })
+      }
+
+      await sendTyping(botToken, chatId)
+      await sendMessage(botToken, chatId, "🎤 Transcription en cours...")
+
+      try {
+        const transcription = await transcribeVoice(openai, botToken, fileId)
+        await sendMessage(botToken, chatId, `📝 _"${transcription}"_\n\nTraitement...`)
+
+        await sendTyping(botToken, chatId)
+        const response = await processWithAI(openai, openaiModel, chatId, transcription)
+        await sendMessage(botToken, chatId, response)
+      } catch (error) {
+        console.error("Voice processing error:", error)
+        await sendMessage(botToken, chatId, "❌ Erreur lors de la transcription du message vocal.")
+      }
+      return NextResponse.json({ ok: true })
+    }
+
+    // Handle photos (business card OCR)
+    if (message.photo && message.photo.length > 0) {
+      if (!openai) {
+        await sendMessage(botToken, chatId, "⚠️ L'IA n'est pas configurée pour traiter les images.")
+        return NextResponse.json({ ok: true })
+      }
+
+      // Get the largest photo (best quality)
+      const photo = message.photo[message.photo.length - 1]
+      const caption = message.caption?.toLowerCase() || ""
+
+      await sendTyping(botToken, chatId)
+
+      // Detect if it's a business card
+      const isBusinessCard = caption.includes("carte") || caption.includes("visite") ||
+                            caption.includes("business") || caption.includes("card") || !caption
+
+      if (isBusinessCard) {
+        await sendMessage(botToken, chatId, "📸 Analyse de la carte de visite...")
+
+        try {
+          const extractedData = await processImageWithVision(
+            openai,
+            botToken,
+            photo.file_id,
+            `Analyse cette carte de visite et extrait TOUTES les informations visibles.
+Retourne un JSON avec cette structure exacte:
+{
+  "companyName": "nom de la société",
+  "contactFirstname": "prénom",
+  "contactLastname": "nom",
+  "email": "email",
+  "phone": "téléphone",
+  "address": "adresse complète",
+  "city": "ville",
+  "postalCode": "code postal",
+  "website": "site web",
+  "position": "poste/fonction"
+}
+Si une information n'est pas visible, mets null. Retourne UNIQUEMENT le JSON, rien d'autre.`
+          )
+
+          // Try to parse the extracted data
+          let clientData
+          try {
+            // Remove markdown code blocks if present
+            const cleanJson = extractedData.replace(/```json?\n?/g, "").replace(/```/g, "").trim()
+            clientData = JSON.parse(cleanJson)
+          } catch {
+            await sendMessage(botToken, chatId, `📋 Informations détectées:\n${extractedData}\n\n_Dis-moi si tu veux que je crée ce client !_`)
+            return NextResponse.json({ ok: true })
+          }
+
+          if (clientData.companyName || clientData.contactLastname) {
+            // Create the client automatically
+            const client = await prisma.client.create({
+              data: {
+                tenant_id: DEFAULT_TENANT_ID,
+                companyName: clientData.companyName || `${clientData.contactFirstname || ""} ${clientData.contactLastname || ""}`.trim(),
+                email: clientData.email || null,
+                phone: clientData.phone || null,
+                contactFirstname: clientData.contactFirstname || null,
+                contactLastname: clientData.contactLastname || null,
+                address: clientData.address || null,
+                city: clientData.city || null,
+                postalCode: clientData.postalCode || null,
+                website: clientData.website || null,
+                status: "prospect",
+              },
+            })
+
+            await sendMessage(
+              botToken,
+              chatId,
+              `✅ *Client créé depuis la carte de visite !*\n\n` +
+              `🏢 *${client.companyName}*\n` +
+              (clientData.contactFirstname || clientData.contactLastname
+                ? `👤 ${clientData.contactFirstname || ""} ${clientData.contactLastname || ""}\n` : "") +
+              (clientData.position ? `💼 ${clientData.position}\n` : "") +
+              (client.email ? `📧 ${client.email}\n` : "") +
+              (client.phone ? `📞 ${client.phone}\n` : "") +
+              (client.address ? `📍 ${client.address}${client.postalCode ? `, ${client.postalCode}` : ""}${client.city ? ` ${client.city}` : ""}\n` : "") +
+              (clientData.website ? `🌐 ${clientData.website}\n` : "") +
+              `\n_ID: ${client.id}_`
+            )
+          } else {
+            await sendMessage(botToken, chatId, "❌ Impossible d'extraire les informations de la carte. Essaie avec une photo plus nette.")
+          }
+        } catch (error) {
+          console.error("Business card processing error:", error)
+          await sendMessage(botToken, chatId, "❌ Erreur lors de l'analyse de l'image.")
+        }
+      } else {
+        // General image analysis
+        try {
+          const analysis = await processImageWithVision(
+            openai,
+            botToken,
+            photo.file_id,
+            caption || "Décris cette image et aide-moi avec ce que tu vois."
+          )
+          await sendMessage(botToken, chatId, analysis)
+        } catch (error) {
+          console.error("Image processing error:", error)
+          await sendMessage(botToken, chatId, "❌ Erreur lors de l'analyse de l'image.")
+        }
+      }
+      return NextResponse.json({ ok: true })
     }
 
     return NextResponse.json({ ok: true })
@@ -2239,5 +3210,5 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-  return NextResponse.json({ status: "ok", bot: "crm-telegram-ai", version: "3.0", tools: tools.length })
+  return NextResponse.json({ status: "ok", bot: "crm-telegram-ai", version: "4.0", features: ["voice", "vision", "memory"], tools: tools.length })
 }

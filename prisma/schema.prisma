@@ -1137,6 +1137,7 @@ model tenants {
   emailTemplates         EmailTemplate[]
   pushSubscriptions      PushSubscription[]
   projects               Project[]
+  recurringReminders     RecurringReminder[]
 }
 
 model user_tenants {
@@ -2053,4 +2054,68 @@ model ProjectCardLabel {
   @@index([cardId], map: "project_card_labels_card_id_index")
   @@index([labelId], map: "project_card_labels_label_id_index")
   @@map("project_card_labels")
+}
+
+// ============================================
+// TELEGRAM CONVERSATIONS (Persistent memory)
+// ============================================
+model TelegramConversation {
+  id           BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  chatId       BigInt   @unique @map("chat_id") @db.BigInt
+  messages     String   @db.LongText // JSON array of messages
+  context      String?  @db.Text // Additional context (current client, last action, etc.)
+  lastActivity DateTime @default(now()) @map("last_activity") @db.Timestamp(0)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+
+  @@index([lastActivity], map: "telegram_conversations_last_activity_index")
+  @@map("telegram_conversations")
+}
+
+// ============================================
+// TELEGRAM USER STATS (Gamification)
+// ============================================
+model TelegramUserStats {
+  id              BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  chatId          BigInt   @unique @map("chat_id") @db.BigInt
+  username        String?  @db.VarChar(100)
+  firstName       String?  @map("first_name") @db.VarChar(100)
+  totalCommands   Int      @default(0) @map("total_commands")
+  clientsCreated  Int      @default(0) @map("clients_created")
+  quotesCreated   Int      @default(0) @map("quotes_created")
+  invoicesCreated Int      @default(0) @map("invoices_created")
+  tasksCompleted  Int      @default(0) @map("tasks_completed")
+  currentStreak   Int      @default(0) @map("current_streak")
+  longestStreak   Int      @default(0) @map("longest_streak")
+  lastActiveDate  DateTime? @map("last_active_date") @db.Date
+  badges          String?   @db.Text // JSON array of earned badges
+  achievements    String?   @db.Text // JSON array of achievements
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(0)
+
+  @@index([currentStreak], map: "telegram_user_stats_streak_index")
+  @@map("telegram_user_stats")
+}
+
+// ============================================
+// RECURRING REMINDERS
+// ============================================
+model RecurringReminder {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  tenant_id   BigInt   @db.UnsignedBigInt
+  chatId      BigInt   @map("chat_id") @db.BigInt
+  title       String   @db.VarChar(255)
+  description String?  @db.Text
+  frequency   String   @db.VarChar(50) // daily, weekly, monthly, custom
+  cronExpr    String?  @map("cron_expr") @db.VarChar(100) // For custom frequency
+  nextRun     DateTime @map("next_run") @db.Timestamp(0)
+  lastRun     DateTime? @map("last_run") @db.Timestamp(0)
+  isActive    Boolean  @default(true) @map("is_active")
+  metadata    String?  @db.Text // JSON for additional data
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+
+  tenant tenants @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id], map: "recurring_reminders_tenant_id_index")
+  @@index([nextRun, isActive], map: "recurring_reminders_next_run_index")
+  @@map("recurring_reminders")
 }
