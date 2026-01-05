@@ -561,6 +561,66 @@ export default function DeploymentsPage() {
         </div>
       </div>
 
+      {/* Running Deployments - Priority Section (above catalog) */}
+      {runningDeployments && runningDeployments.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <Loader2 className="h-5 w-5 animate-spin text-[#0064FA]" />
+            Déploiements en cours ({runningDeployments.length})
+          </h2>
+          <div className="space-y-3">
+            {runningDeployments.map((deployment) => (
+              <DeploymentCard
+                key={deployment.id}
+                deployment={deployment}
+                onAction={handleAction}
+                actionLoading={actionLoading}
+                formatDuration={formatDuration}
+                formatTimeAgo={formatTimeAgo}
+                getStatusConfig={getStatusConfig}
+                highlighted
+                onClick={() => setSelectedDeployment(deployment)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Error Deployments - Alert Section (only show if app is currently in error state) */}
+      {filteredDeployments && filteredDeployments.filter((d) => d.status === "error" && d.appStatus === "error").length > 0 && !statusFilter && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-red-600 mb-3 flex items-center gap-2">
+            <XCircle className="h-5 w-5" />
+            Déploiements en erreur ({filteredDeployments.filter((d) => d.status === "error" && d.appStatus === "error").length})
+          </h2>
+          <div className="space-y-3">
+            {filteredDeployments
+              .filter((d) => d.status === "error" && d.appStatus === "error")
+              .slice(0, 5)
+              .map((deployment) => (
+                <DeploymentCard
+                  key={deployment.id}
+                  deployment={deployment}
+                  onAction={handleAction}
+                  actionLoading={actionLoading}
+                  formatDuration={formatDuration}
+                  formatTimeAgo={formatTimeAgo}
+                  getStatusConfig={getStatusConfig}
+                  onClick={() => setSelectedDeployment(deployment)}
+                />
+              ))}
+            {filteredDeployments.filter((d) => d.status === "error" && d.appStatus === "error").length > 5 && (
+              <button
+                onClick={() => setStatusFilter("error")}
+                className="w-full py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                Voir toutes les erreurs ({filteredDeployments.filter((d) => d.status === "error" && d.appStatus === "error").length})
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Applications Catalog */}
       {data?.catalog && data.catalog.length > 0 && (
         <div className="mb-6">
@@ -634,66 +694,6 @@ export default function DeploymentsPage() {
               </div>
             </>
           )}
-        </div>
-      )}
-
-      {/* Running Deployments - Priority Section */}
-      {runningDeployments && runningDeployments.length > 0 && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin text-[#0064FA]" />
-            Déploiements en cours ({runningDeployments.length})
-          </h2>
-          <div className="space-y-3">
-            {runningDeployments.map((deployment) => (
-              <DeploymentCard
-                key={deployment.id}
-                deployment={deployment}
-                onAction={handleAction}
-                actionLoading={actionLoading}
-                formatDuration={formatDuration}
-                formatTimeAgo={formatTimeAgo}
-                getStatusConfig={getStatusConfig}
-                highlighted
-                onClick={() => setSelectedDeployment(deployment)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Error Deployments - Alert Section (only show if app is currently in error state) */}
-      {filteredDeployments && filteredDeployments.filter((d) => d.status === "error" && d.appStatus === "error").length > 0 && !statusFilter && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-red-600 mb-3 flex items-center gap-2">
-            <XCircle className="h-5 w-5" />
-            Déploiements en erreur ({filteredDeployments.filter((d) => d.status === "error" && d.appStatus === "error").length})
-          </h2>
-          <div className="space-y-3">
-            {filteredDeployments
-              .filter((d) => d.status === "error" && d.appStatus === "error")
-              .slice(0, 5)
-              .map((deployment) => (
-                <DeploymentCard
-                  key={deployment.id}
-                  deployment={deployment}
-                  onAction={handleAction}
-                  actionLoading={actionLoading}
-                  formatDuration={formatDuration}
-                  formatTimeAgo={formatTimeAgo}
-                  getStatusConfig={getStatusConfig}
-                  onClick={() => setSelectedDeployment(deployment)}
-                />
-              ))}
-            {filteredDeployments.filter((d) => d.status === "error" && d.appStatus === "error").length > 5 && (
-              <button
-                onClick={() => setStatusFilter("error")}
-                className="w-full py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                Voir toutes les erreurs ({filteredDeployments.filter((d) => d.status === "error" && d.appStatus === "error").length})
-              </button>
-            )}
-          </div>
         </div>
       )}
 
