@@ -57,9 +57,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Create order via Revolut Merchant API (returns checkout_url)
+    // Note: Merchant API uses /api/orders (not /api/1.0/orders)
     const baseUrl = settings.environment === "production"
-      ? "https://merchant.revolut.com/api/1.0"
-      : "https://sandbox-merchant.revolut.com/api/1.0"
+      ? "https://merchant.revolut.com/api"
+      : "https://sandbox-merchant.revolut.com/api"
 
     // Build customer name
     const customerName = invoice.client.companyName ||
