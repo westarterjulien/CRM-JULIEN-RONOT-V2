@@ -2759,7 +2759,8 @@ async function processWithAI(
   openai: OpenAI,
   model: string,
   chatId: number,
-  userMessage: string
+  userMessage: string,
+  botToken?: string // Optional: pass to enable typing indicators during processing
 ): Promise<string> {
   // Load persisted conversation history
   const history = await loadConversation(chatId)
@@ -2769,6 +2770,17 @@ async function processWithAI(
     ...history.map(h => ({ role: h.role as "user" | "assistant", content: h.content })),
     { role: "user", content: userMessage },
   ]
+
+  // Set up continuous typing indicator (refreshes every 4 seconds)
+  let typingInterval: ReturnType<typeof setInterval> | null = null
+  if (botToken) {
+    // Initial typing
+    try { await sendTyping(botToken, chatId) } catch { /* ignore */ }
+    // Continuous refresh every 4 seconds (typing expires after 5s)
+    typingInterval = setInterval(async () => {
+      try { await sendTyping(botToken, chatId) } catch { /* ignore */ }
+    }, 4000)
+  }
 
   try {
     const response = await openai.chat.completions.create({
@@ -2830,6 +2842,9 @@ async function processWithAI(
   } catch (error) {
     console.error("OpenAI error:", error)
     throw error
+  } finally {
+    // Always clear the typing interval
+    if (typingInterval) clearInterval(typingInterval)
   }
 }
 
@@ -3042,7 +3057,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ ok: true })
         }
         await sendTyping(botToken, chatId)
-        const response = await processWithAI(openai, openaiModel, chatId, "Dashboard complet")
+        const response = await processWithAI(openai, openaiModel, chatId, "Dashboard complet", botToken)
         await sendMessage(botToken, chatId, response)
         return NextResponse.json({ ok: true })
       }
@@ -3057,7 +3072,7 @@ export async function POST(request: NextRequest) {
       }
 
       await sendTyping(botToken, chatId)
-      const response = await processWithAI(openai, openaiModel, chatId, text)
+      const response = await processWithAI(openai, openaiModel, chatId, text, botToken)
       await sendMessage(botToken, chatId, response)
       return NextResponse.json({ ok: true })
     }
@@ -3083,7 +3098,7 @@ export async function POST(request: NextRequest) {
         await sendMessage(botToken, chatId, `📝 _"${transcription}"_\n\nTraitement...`)
 
         await sendTyping(botToken, chatId)
-        const response = await processWithAI(openai, openaiModel, chatId, transcription)
+        const response = await processWithAI(openai, openaiModel, chatId, transcription, botToken)
         await sendMessage(botToken, chatId, response)
       } catch (error) {
         console.error("Voice processing error:", error)
