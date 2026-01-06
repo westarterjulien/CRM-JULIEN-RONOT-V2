@@ -2,6 +2,7 @@
 
 import { useMemo, useCallback } from "react"
 import { Circle, CheckCircle2 } from "lucide-react"
+import { sanitizeMarkdown } from "@/lib/sanitize"
 
 interface MarkdownPreviewProps {
   content: string
@@ -73,6 +74,21 @@ function parseContent(content: string): ParsedElement[] {
   return elements
 }
 
+// Sanitize URL to prevent javascript: and other dangerous protocols
+function sanitizeUrl(url: string): string {
+  const trimmed = url.trim().toLowerCase()
+  // Block dangerous protocols
+  if (
+    trimmed.startsWith("javascript:") ||
+    trimmed.startsWith("data:") ||
+    trimmed.startsWith("vbscript:") ||
+    trimmed.startsWith("file:")
+  ) {
+    return "#"
+  }
+  return url
+}
+
 function formatInlineMarkdown(text: string): string {
   let result = text
     // Escape HTML
@@ -89,13 +105,17 @@ function formatInlineMarkdown(text: string): string {
     .replace(/~~(.+?)~~/g, '<del class="line-through opacity-60">$1</del>')
     // Inline code
     .replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded text-xs bg-gray-100 text-pink-600 font-mono">$1</code>')
-    // Links
+    // Links - with URL sanitization
     .replace(
       /\[([^\]]+)\]\(([^)]+)\)/g,
-      '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$1</a>'
+      (_match, linkText, url) => {
+        const safeUrl = sanitizeUrl(url)
+        return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">${linkText}</a>`
+      }
     )
 
-  return result
+  // Final sanitization pass with DOMPurify
+  return sanitizeMarkdown(result)
 }
 
 export function MarkdownPreview({

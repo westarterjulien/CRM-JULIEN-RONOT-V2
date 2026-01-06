@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, use, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { sanitizeEmailBody } from "@/lib/sanitize"
 import {
   ArrowLeft,
   MoreHorizontal,
@@ -433,35 +434,11 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
     return name.split(" ").map(n => n[0]).join("").toUpperCase().substring(0, 2)
   }
 
-  // Clean HTML content for display
+  // Clean HTML content for display - uses DOMPurify for XSS protection
   const cleanHtmlContent = (html: string): string => {
     if (!html) return ""
-
-    // Remove script tags
-    let cleaned = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-
-    // Remove style tags
-    cleaned = cleaned.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
-
-    // Remove meta tags
-    cleaned = cleaned.replace(/<meta[^>]*>/gi, "")
-
-    // Remove head section entirely
-    cleaned = cleaned.replace(/<head\b[^<]*(?:(?!<\/head>)<[^<]*)*<\/head>/gi, "")
-
-    // Remove html and body tags but keep content
-    cleaned = cleaned.replace(/<\/?html[^>]*>/gi, "")
-    cleaned = cleaned.replace(/<\/?body[^>]*>/gi, "")
-
-    // Remove onclick and other event handlers
-    cleaned = cleaned.replace(/\s*on\w+="[^"]*"/gi, "")
-    cleaned = cleaned.replace(/\s*on\w+='[^']*'/gi, "")
-
-    // Clean up excessive whitespace
-    cleaned = cleaned.replace(/\n\s*\n\s*\n/g, "\n\n")
-    cleaned = cleaned.trim()
-
-    return cleaned
+    // Use DOMPurify-based sanitization for robust XSS protection
+    return sanitizeEmailBody(html)
   }
 
   // Check if content looks like HTML

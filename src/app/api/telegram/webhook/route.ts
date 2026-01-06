@@ -3417,6 +3417,42 @@ interface TelegramUpdate {
 
 export async function POST(request: NextRequest) {
   try {
+    // Verify Telegram webhook secret token first
+    const secretToken = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
+
+    // Get settings (includes webhook secret)
+    const tenant = await prisma.tenants.findFirst({
+      where: { id: DEFAULT_TENANT_ID },
+    })
+
+    let webhookSecret = ""
+    if (tenant?.settings) {
+      try {
+        const settingsObj = JSON.parse(tenant.settings)
+        webhookSecret = settingsObj.telegramWebhookSecret || ""
+      } catch {}
+    }
+
+    // Verify webhook secret if configured (constant-time comparison)
+    if (webhookSecret) {
+      if (!secretToken) {
+        console.error("[Telegram Webhook] Missing secret token - rejecting request")
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      }
+
+      // Use constant-time comparison to prevent timing attacks
+      const expectedBuffer = Buffer.from(webhookSecret)
+      const receivedBuffer = Buffer.from(secretToken)
+
+      if (expectedBuffer.length !== receivedBuffer.length ||
+          !require("crypto").timingSafeEqual(expectedBuffer, receivedBuffer)) {
+        console.error("[Telegram Webhook] Invalid secret token - rejecting request")
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      }
+    } else {
+      console.warn("[Telegram Webhook] No webhook secret configured - token not verified!")
+    }
+
     const settings = await getSettings()
     const { botToken, allowedUsers, openaiKey, openaiModel } = settings
 

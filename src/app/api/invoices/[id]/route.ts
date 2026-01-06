@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { notifyInvoicePaid } from "@/lib/notifications"
 import { formatCurrency } from "@/lib/utils"
+import {
+  getAuthContext,
+  withClientFilter,
+  canAccessClient,
+  unauthorized,
+  forbidden,
+  notFound,
+  parseId,
+} from "@/lib/auth-helpers"
 
 const serializeData = (obj: unknown): unknown => {
   if (obj === null || obj === undefined) return obj
@@ -27,9 +36,22 @@ export async function GET(
 ) {
   const { id } = await params
 
+  // Validate ID format
+  const invoiceId = parseId(id)
+  if (!invoiceId) {
+    return notFound("Invalid invoice ID")
+  }
+
+  // Get auth context
+  const authContext = await getAuthContext()
+  if (!authContext) {
+    return unauthorized()
+  }
+
   try {
-    const invoice = await prisma.invoice.findUnique({
-      where: { id: BigInt(id) },
+    // Use findFirst with tenant filter instead of findUnique
+    const invoice = await prisma.invoice.findFirst({
+      where: withClientFilter(authContext, { id: invoiceId }),
       include: {
         client: true,
         items: {
@@ -106,7 +128,33 @@ export async function PUT(
 ) {
   const { id } = await params
 
+  // Validate ID format
+  const invoiceId = parseId(id)
+  if (!invoiceId) {
+    return notFound("Invalid invoice ID")
+  }
+
+  // Get auth context - only admins can modify invoices
+  const authContext = await getAuthContext()
+  if (!authContext) {
+    return unauthorized()
+  }
+
+  // Clients cannot modify invoices
+  if (authContext.isClient) {
+    return forbidden("Clients cannot modify invoices")
+  }
+
   try {
+    // Verify invoice exists and belongs to tenant
+    const existingInvoice = await prisma.invoice.findFirst({
+      where: { id: invoiceId, tenant_id: authContext.tenantId },
+    })
+
+    if (!existingInvoice) {
+      return notFound("Invoice not found")
+    }
+
     const body = await request.json()
 
     // Handle status updates
@@ -114,7 +162,7 @@ export async function PUT(
       switch (body.action) {
         case "markPaid": {
           const paidInvoice = await prisma.invoice.update({
-            where: { id: BigInt(id) },
+            where: { id: invoiceId },
             data: {
               status: "paid",
               paymentDate: new Date(),
@@ -377,9 +425,35 @@ export async function DELETE(
 ) {
   const { id } = await params
 
+  // Validate ID format
+  const invoiceId = parseId(id)
+  if (!invoiceId) {
+    return notFound("Invalid invoice ID")
+  }
+
+  // Get auth context - only admins can delete invoices
+  const authContext = await getAuthContext()
+  if (!authContext) {
+    return unauthorized()
+  }
+
+  // Clients cannot delete invoices
+  if (authContext.isClient) {
+    return forbidden("Clients cannot delete invoices")
+  }
+
   try {
+    // Verify invoice exists and belongs to tenant before deleting
+    const existingInvoice = await prisma.invoice.findFirst({
+      where: { id: invoiceId, tenant_id: authContext.tenantId },
+    })
+
+    if (!existingInvoice) {
+      return notFound("Invoice not found")
+    }
+
     await prisma.invoice.delete({
-      where: { id: BigInt(id) },
+      where: { id: invoiceId },
     })
 
     return NextResponse.json({ success: true })

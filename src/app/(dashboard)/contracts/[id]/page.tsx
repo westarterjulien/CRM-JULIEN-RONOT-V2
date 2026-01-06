@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { formatDate } from "@/lib/utils"
+import { sanitizeHtml } from "@/lib/sanitize"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -482,7 +483,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
               </div>
               <div
                 className="p-6 max-h-[500px] overflow-y-auto prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: contract.content }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(contract.content || "") }}
                 style={{ color: "#444444" }}
               />
             </div>

@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Mail, Eye, Send, CheckCircle, Clock, AlertCircle, RefreshCw, ChevronDown, ChevronUp } from "lucide-react"
 import { formatDate } from "@/lib/utils"
+import { sanitizeEmailBody } from "@/lib/sanitize"
 
 interface Email {
   id: string
@@ -275,7 +276,7 @@ export function ClientEmailsTab({ clientId }: ClientEmailsTabProps) {
                         <div
                           className="prose prose-sm max-w-none p-4 rounded-lg"
                           style={{ background: "#FFFFFF" }}
-                          dangerouslySetInnerHTML={{ __html: email.body }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeEmailBody(email.body) }}
                         />
                       </div>
                     </TableCell>
@@ -354,7 +355,7 @@ export function ClientEmailsTab({ clientId }: ClientEmailsTabProps) {
               <div
                 className="prose prose-sm max-w-none p-4 rounded-xl"
                 style={{ background: "#FFFFFF", border: "1px solid #EEEEEE" }}
-                dangerouslySetInnerHTML={{ __html: selectedEmail.body }}
+                dangerouslySetInnerHTML={{ __html: sanitizeEmailBody(selectedEmail.body) }}
               />
 
               {/* Action buttons */}

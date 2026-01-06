@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import crypto from "crypto"
+
+const DEFAULT_TENANT_ID = BigInt(1)
 
 // DocuSeal webhook event types
 type DocuSealEventType =
@@ -42,13 +45,76 @@ interface DocuSealWebhookPayload {
   }
 }
 
+// Verify DocuSeal webhook signature (HMAC-SHA256)
+function verifyDocuSealSignature(
+  payload: string,
+  signature: string | null,
+  webhookSecret: string
+): boolean {
+  if (!signature || !webhookSecret) {
+    return false
+  }
+
+  try {
+    // DocuSeal sends signature in X-Docuseal-Signature header
+    // Format: sha256=<hex_hash>
+    const expectedSignature = crypto
+      .createHmac("sha256", webhookSecret)
+      .update(payload, "utf8")
+      .digest("hex")
+
+    const receivedSig = signature.replace("sha256=", "")
+
+    return crypto.timingSafeEqual(
+      Buffer.from(receivedSig),
+      Buffer.from(expectedSignature)
+    )
+  } catch (error) {
+    console.error("[DocuSeal Webhook] Signature verification error:", error)
+    return false
+  }
+}
+
 // POST - Handle DocuSeal webhook events
 export async function POST(request: NextRequest) {
   try {
-    const payload: DocuSealWebhookPayload = await request.json()
+    // Get raw body for signature verification
+    const rawBody = await request.text()
 
-    console.log(`DocuSeal webhook received: ${payload.event_type}`)
-    console.log(`Data:`, JSON.stringify(payload.data, null, 2))
+    // Get webhook signature from header
+    const signature = request.headers.get("X-Docuseal-Signature")
+      || request.headers.get("x-docuseal-signature")
+
+    // Get webhook secret from tenant settings
+    const tenant = await prisma.tenants.findFirst({
+      where: { id: DEFAULT_TENANT_ID },
+    })
+
+    let webhookSecret = ""
+    if (tenant?.settings) {
+      try {
+        const settings = JSON.parse(tenant.settings)
+        webhookSecret = settings.docusealWebhookSecret || ""
+      } catch {}
+    }
+
+    // Verify signature if secret is configured
+    if (webhookSecret) {
+      const isValid = verifyDocuSealSignature(rawBody, signature, webhookSecret)
+      if (!isValid) {
+        console.error("[DocuSeal Webhook] Invalid signature - rejecting request")
+        return NextResponse.json(
+          { error: "Invalid webhook signature" },
+          { status: 401 }
+        )
+      }
+    } else {
+      console.warn("[DocuSeal Webhook] No webhook secret configured - signature not verified!")
+    }
+
+    const payload: DocuSealWebhookPayload = JSON.parse(rawBody)
+
+    console.log(`[DocuSeal Webhook] Received: ${payload.event_type}`)
 
     switch (payload.event_type) {
       case "form.viewed":

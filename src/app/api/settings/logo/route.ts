@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-helpers"
 
 export async function POST(request: NextRequest) {
+  // Require authentication
+  const authContext = await getAuthContext()
+  if (!authContext) {
+    return unauthorized()
+  }
+
+  // Only admins can change logo
+  if (authContext.isClient) {
+    return forbidden("Clients cannot modify tenant settings")
+  }
+
   try {
     const formData = await request.formData()
     const file = formData.get("logo") as File | null
@@ -13,11 +25,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate file type
-    const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"]
+    // Validate file type - SVG removed for XSS security
+    const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]
     if (!validTypes.includes(file.type)) {
       return NextResponse.json(
-        { error: "Type de fichier non supporté. Utilisez JPG, PNG, GIF, WebP ou SVG." },
+        { error: "Type de fichier non supporté. Utilisez JPG, PNG, GIF ou WebP." },
         { status: 400 }
       )
     }
@@ -59,10 +71,21 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE() {
+  // Require authentication
+  const authContext = await getAuthContext()
+  if (!authContext) {
+    return unauthorized()
+  }
+
+  // Only admins can delete logo
+  if (authContext.isClient) {
+    return forbidden("Clients cannot modify tenant settings")
+  }
+
   try {
     // Update tenant to remove logo
     await prisma.tenants.update({
-      where: { id: BigInt(1) },
+      where: { id: authContext.tenantId },
       data: {
         logo: null,
         updated_at: new Date(),

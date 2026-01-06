@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { notifyInvoicePaid } from "@/lib/notifications"
 import { formatCurrency } from "@/lib/utils"
+import crypto from "crypto"
 
 const DEFAULT_TENANT_ID = BigInt(1)
 
@@ -28,10 +29,101 @@ interface RevolutWebhookPayload {
   }
 }
 
+// Verify Revolut webhook signature (HMAC-SHA256)
+async function verifyRevolutSignature(
+  payload: string,
+  signature: string | null,
+  webhookSecret: string
+): Promise<boolean> {
+  if (!signature || !webhookSecret) {
+    return false
+  }
+
+  try {
+    // Revolut uses timestamp.payload format for signature
+    // The signature header contains: v1=<hash>,t=<timestamp>
+    const parts = signature.split(",")
+    const signaturePart = parts.find(p => p.startsWith("v1="))
+    const timestampPart = parts.find(p => p.startsWith("t="))
+
+    if (!signaturePart || !timestampPart) {
+      // Fallback: simple HMAC comparison
+      const expected = crypto
+        .createHmac("sha256", webhookSecret)
+        .update(payload)
+        .digest("hex")
+      return crypto.timingSafeEqual(
+        Buffer.from(signature),
+        Buffer.from(expected)
+      )
+    }
+
+    const receivedSig = signaturePart.replace("v1=", "")
+    const timestamp = timestampPart.replace("t=", "")
+
+    // Check timestamp is within 5 minutes to prevent replay attacks
+    const timestampMs = parseInt(timestamp) * 1000
+    const now = Date.now()
+    if (Math.abs(now - timestampMs) > 5 * 60 * 1000) {
+      console.error("[Revolut Webhook] Timestamp too old, possible replay attack")
+      return false
+    }
+
+    // Compute expected signature
+    const signedPayload = `${timestamp}.${payload}`
+    const expected = crypto
+      .createHmac("sha256", webhookSecret)
+      .update(signedPayload)
+      .digest("hex")
+
+    return crypto.timingSafeEqual(
+      Buffer.from(receivedSig),
+      Buffer.from(expected)
+    )
+  } catch (error) {
+    console.error("[Revolut Webhook] Signature verification error:", error)
+    return false
+  }
+}
+
 // POST: Handle Revolut webhook notifications
 export async function POST(request: NextRequest) {
   try {
-    const payload: RevolutWebhookPayload = await request.json()
+    // Get raw body for signature verification
+    const rawBody = await request.text()
+
+    // Get webhook signature from header
+    const signature = request.headers.get("Revolut-Signature")
+      || request.headers.get("X-Revolut-Signature")
+
+    // Get webhook secret from tenant settings
+    const tenant = await prisma.tenants.findFirst({
+      where: { id: DEFAULT_TENANT_ID },
+    })
+
+    let webhookSecret = ""
+    if (tenant?.settings) {
+      try {
+        const settings = JSON.parse(tenant.settings)
+        webhookSecret = settings.revolutWebhookSecret || ""
+      } catch {}
+    }
+
+    // Verify signature if secret is configured
+    if (webhookSecret) {
+      const isValid = await verifyRevolutSignature(rawBody, signature, webhookSecret)
+      if (!isValid) {
+        console.error("[Revolut Webhook] Invalid signature - rejecting request")
+        return NextResponse.json(
+          { error: "Invalid webhook signature" },
+          { status: 401 }
+        )
+      }
+    } else {
+      console.warn("[Revolut Webhook] No webhook secret configured - signature not verified!")
+    }
+
+    const payload: RevolutWebhookPayload = JSON.parse(rawBody)
 
     console.log("[Revolut Webhook] Received:", JSON.stringify(payload, null, 2))
 
