@@ -42,7 +42,9 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: electron-app/dist/*Setup*.exe
+          files: |
+            electron-app/dist/*Setup*.exe
+            electron-app/dist/latest.yml
           draft: false
           prerelease: false
         env:
