@@ -4,10 +4,29 @@ Serveur MCP (Model Context Protocol) pour la gestion de mémoire de projets et l
 
 ## Vue d'ensemble
 
-Le serveur `brain-memory-claude` fournit deux fonctionnalités principales :
+Le serveur `brain-memory-claude` fournit trois fonctionnalités principales :
 
 1. **Mémoire de Projet** - Persistance du contexte entre sessions Claude
-2. **Intégration Dokploy** - Déploiement et gestion d'infrastructure
+2. **Code Memory** - Indexation et analyse du codebase
+3. **Intégration Dokploy** - Déploiement et gestion d'infrastructure
+
+## Installation
+
+Configurer dans `~/.claude/settings.json` :
+
+```json
+{
+  "mcpServers": {
+    "brain-memory-claude": {
+      "command": "node",
+      "args": ["/chemin/vers/brain-memory-claude/dist/index.js"],
+      "env": {
+        "DATABASE_PATH": "/chemin/vers/brain-memory.db"
+      }
+    }
+  }
+}
+```
 
 ---
 
@@ -376,3 +395,256 @@ SQLite locale stockant :
 - Index de code (fichiers, éléments, patterns)
 - Sessions de développement
 - Serveurs Dokploy et liaisons
+
+---
+
+## Référence des Paramètres
+
+### init_project_workflow
+
+| Paramètre | Type | Requis | Description |
+|-----------|------|--------|-------------|
+| `path` | string | ✅ | Chemin absolu du projet |
+| `name` | string | ✅ | Nom du projet |
+| `description` | string | | Description du projet |
+| `spec_file` | string | | Chemin vers le cahier des charges (markdown) |
+| `spec_content` | string | | Contenu du cahier des charges en markdown |
+
+### get_restore_context
+
+| Paramètre | Type | Requis | Description |
+|-----------|------|--------|-------------|
+| `path` | string | ✅ | Chemin absolu du projet |
+| `depth` | string | | `minimal`, `standard` (défaut), ou `full` |
+| `focus` | string | | Domaine à prioriser (ex: "auth", "api", "frontend") |
+
+### save_conversation_summary
+
+| Paramètre | Type | Requis | Description |
+|-----------|------|--------|-------------|
+| `path` | string | ✅ | Chemin du projet |
+| `summary` | string | ✅ | Résumé de ce qui a été fait |
+| `key_decisions` | string[] | | Décisions importantes prises |
+| `key_learnings` | string[] | | Points appris sur le code |
+| `files_discussed` | string[] | | Fichiers principaux discutés |
+| `unfinished_tasks` | string[] | | Tâches à reprendre |
+| `important_context` | string | | Contexte crucial pour la prochaine session |
+
+### add_decision
+
+| Paramètre | Type | Requis | Description |
+|-----------|------|--------|-------------|
+| `path` | string | ✅ | Chemin du projet |
+| `title` | string | ✅ | Titre de la décision |
+| `description` | string | | Description détaillée |
+| `rationale` | string | | Justification |
+
+### add_convention
+
+| Paramètre | Type | Requis | Description |
+|-----------|------|--------|-------------|
+| `path` | string | ✅ | Chemin du projet |
+| `category` | string | ✅ | `naming`, `structure`, `patterns`, etc. |
+| `rule` | string | ✅ | La règle à suivre |
+| `example` | string | | Exemple d'application |
+
+### add_todo
+
+| Paramètre | Type | Requis | Description |
+|-----------|------|--------|-------------|
+| `path` | string | ✅ | Chemin du projet |
+| `title` | string | ✅ | Titre de la tâche |
+| `description` | string | | Description détaillée |
+| `priority` | string | | `low`, `medium`, `high`, `critical` |
+| `category` | string | | `feature`, `bugfix`, `refactor`, `docs`, etc. |
+
+### add_bug
+
+| Paramètre | Type | Requis | Description |
+|-----------|------|--------|-------------|
+| `path` | string | ✅ | Chemin du projet |
+| `title` | string | ✅ | Titre du bug |
+| `description` | string | | Description détaillée |
+| `severity` | string | | `low`, `medium`, `high`, `critical` |
+| `file_path` | string | | Fichier concerné |
+
+### get_recommended_agent
+
+| Paramètre | Type | Requis | Description |
+|-----------|------|--------|-------------|
+| `path` | string | ✅ | Chemin du projet |
+| `task_description` | string | ✅ | Description de la tâche à effectuer |
+
+### log_development_activity
+
+| Paramètre | Type | Requis | Description |
+|-----------|------|--------|-------------|
+| `path` | string | ✅ | Chemin du projet |
+| `activity_type` | string | ✅ | `feature`, `bugfix`, `refactor`, `config`, `docs`, `test` |
+| `summary` | string | ✅ | Résumé de l'activité |
+| `agent_used` | string | | Agent utilisé |
+| `files_modified` | string[] | | Fichiers modifiés |
+| `decisions_made` | string[] | | Décisions prises |
+
+### add_design_token
+
+| Paramètre | Type | Requis | Description |
+|-----------|------|--------|-------------|
+| `path` | string | ✅ | Chemin du projet |
+| `category` | string | ✅ | `colors`, `typography`, `spacing`, `shadows`, `borders`, `components` |
+| `name` | string | ✅ | Nom du token (ex: primary, heading-1) |
+| `value` | string | ✅ | Valeur (ex: #8B5CF6, 16px) |
+| `css_variable` | string | | Variable CSS (ex: --color-primary) |
+| `description` | string | | Description de l'usage |
+
+### dokploy_add_server
+
+| Paramètre | Type | Requis | Description |
+|-----------|------|--------|-------------|
+| `name` | string | ✅ | Nom du serveur (ex: "Production") |
+| `url` | string | ✅ | URL Dokploy (ex: https://dokploy.example.com) |
+| `api_token` | string | ✅ | Token API (Settings > Profile > API/CLI) |
+| `description` | string | | Description |
+| `is_default` | boolean | | Définir comme serveur par défaut |
+| `database_host` | string | | URL de la base de données associée |
+
+### dokploy_add_domain
+
+| Paramètre | Type | Requis | Description |
+|-----------|------|--------|-------------|
+| `host` | string | ✅ | Nom de domaine (ex: app.example.com) |
+| `application_id` | string | | ID de l'application |
+| `compose_id` | string | | ID du compose (alternatif) |
+| `port` | number | | Port interne (défaut: 3000) |
+| `https` | boolean | | Activer HTTPS (défaut: true) |
+| `certificate_type` | string | | `none`, `letsencrypt`, `custom` |
+
+### dokploy_api (Générique)
+
+| Paramètre | Type | Requis | Description |
+|-----------|------|--------|-------------|
+| `endpoint` | string | ✅ | Endpoint tRPC (ex: "application.deploy") |
+| `params` | object | | Paramètres à envoyer |
+| `method` | string | | `query` (GET) ou `mutation` (POST), auto-détecté |
+| `server_id` | number | | ID du serveur (optionnel si un seul) |
+
+**Méthodes auto-détectées :**
+- `query` (GET) : `.read*`, `.get*`, `.all`, `.one`, `.list*`, `.by*`, `.show*`, `.find*`, `.templates`, `.metrics`
+- `mutation` (POST) : `.create`, `.update`, `.delete`, `.deploy`, `.start`, `.stop`, etc.
+
+---
+
+## Exemples d'Utilisation
+
+### Initialiser un nouveau projet
+
+```javascript
+// 1. Initialisation complète
+init_project_workflow({
+  path: "/home/user/mon-projet",
+  name: "Mon Projet",
+  description: "Description du projet",
+  spec_file: "/home/user/cahier-des-charges.md"
+})
+
+// 2. Le workflow exécute automatiquement :
+// - Création du projet en base
+// - Scan de la structure de fichiers
+// - Import du cahier des charges
+// - Génération des règles d'agents par défaut
+// - Génération du fichier .claude/CLAUDE.md
+```
+
+### Reprendre le travail après une pause
+
+```javascript
+// Au démarrage
+const context = get_restore_context({
+  path: "/home/user/mon-projet",
+  depth: "standard",
+  focus: "api"  // Optionnel: prioriser un domaine
+})
+
+// Retourne:
+// - Session active (si existante)
+// - Tâches en cours
+// - Décisions récentes
+// - Conventions
+// - Guide de démarrage rapide
+```
+
+### Déployer une application
+
+```javascript
+// Option 1: Via l'ID d'application
+dokploy_deploy({
+  application_id: "abc123",
+  server_id: 1
+})
+
+// Option 2: Via un projet lié
+deploy_linked_project({
+  path: "/home/user/mon-projet",
+  environment: "production"  // Optionnel
+})
+
+// Option 3: Via l'API générique
+dokploy_api({
+  endpoint: "application.deploy",
+  params: { applicationId: "abc123" },
+  server_id: 1
+})
+```
+
+### Configurer un domaine avec SSL
+
+```javascript
+dokploy_add_domain({
+  host: "app.example.com",
+  application_id: "abc123",
+  port: 3000,
+  https: true,
+  certificate_type: "letsencrypt"
+})
+```
+
+### Sauvegarder avant de terminer
+
+```javascript
+save_conversation_summary({
+  path: "/home/user/mon-projet",
+  summary: "Implémentation de l'authentification OAuth2",
+  key_decisions: [
+    "Utilisation de NextAuth avec provider Google",
+    "Stockage des sessions en base de données"
+  ],
+  key_learnings: [
+    "Le middleware doit vérifier le cookie authjs.session-token",
+    "Les routes /api/auth/* doivent être publiques"
+  ],
+  files_discussed: [
+    "src/middleware.ts",
+    "src/app/api/auth/[...nextauth]/route.ts"
+  ],
+  unfinished_tasks: [
+    "Ajouter le provider Microsoft",
+    "Tests d'intégration"
+  ]
+})
+```
+
+---
+
+## Notes Importantes
+
+1. **Préfixe des outils** : Tous les outils sont préfixés par `mcp__brain-memory-claude__`
+   - Exemple: `mcp__brain-memory-claude__get_project_context`
+
+2. **Chemins absolus** : Toujours utiliser des chemins absolus pour le paramètre `path`
+
+3. **IDs de projet** : Certains outils utilisent `project_id` (numérique) au lieu de `path`
+   - Utiliser `detect_project` pour obtenir l'ID à partir d'un chemin
+
+4. **Serveur Dokploy par défaut** : Si un seul serveur est configuré, `server_id` est optionnel
+
+5. **Webhooks Dokploy** : L'auto-deploy via webhook GitHub nécessite que le repo soit configuré dans Dokploy
