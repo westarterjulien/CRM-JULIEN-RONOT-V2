@@ -26,6 +26,7 @@ import {
   FolderKanban,
   Rocket,
   Download,
+  BookOpen,
 } from "lucide-react"
 import { signOut, useSession } from "next-auth/react"
 import { useTenant } from "@/contexts/tenant-context"
@@ -452,6 +453,44 @@ export function Sidebar({ isOpen: mobileOpen, onClose }: SidebarProps) {
               style={{ background: theme.tooltipBg, color: theme.tooltipText }}
             >
               Application Desktop
+              <div
+                className="absolute -left-1.5 top-1/2 -translate-y-1/2"
+                style={{
+                  borderTop: "6px solid transparent",
+                  borderBottom: "6px solid transparent",
+                  borderRight: `6px solid ${theme.tooltipBg}`,
+                }}
+              />
+            </div>
+          )}
+        </Link>
+
+        {/* API Docs */}
+        <Link
+          href="/api-docs"
+          onMouseEnter={() => setHoveredItem("api-docs")}
+          onMouseLeave={() => setHoveredItem(null)}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all relative mb-1"
+          style={{ background: isActive("/api-docs") ? theme.itemActive : "transparent" }}
+        >
+          <BookOpen
+            className="w-5 h-5 flex-shrink-0"
+            style={{ color: isActive("/api-docs") ? theme.iconActive : theme.iconInactive }}
+          />
+          {showLabels && (
+            <span
+              className="flex-1 text-[14px] font-medium"
+              style={{ color: isActive("/api-docs") ? theme.textActive : theme.textInactive }}
+            >
+              Documentation API
+            </span>
+          )}
+          {!showLabels && hoveredItem === "api-docs" && (
+            <div
+              className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-2 rounded-lg text-[13px] font-medium whitespace-nowrap z-50 shadow-lg"
+              style={{ background: theme.tooltipBg, color: theme.tooltipText }}
+            >
+              Documentation API
               <div
                 className="absolute -left-1.5 top-1/2 -translate-y-1/2"
                 style={{

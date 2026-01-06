@@ -1,0 +1,1121 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CRM Luelis API",
+    "description": "API complète du CRM Luelis pour la gestion des clients, factures, devis, contrats et plus encore.",
+    "version": "2.0.0",
+    "contact": {
+      "name": "Support Luelis",
+      "email": "support@luelis.fr",
+      "url": "https://luelis.fr"
+    },
+    "license": {
+      "name": "Propriétaire",
+      "url": "https://luelis.fr/license"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://crm.julienronot.fr/api",
+      "description": "Production"
+    },
+    {
+      "url": "http://localhost:3000/api",
+      "description": "Développement local"
+    }
+  ],
+  "tags": [
+    { "name": "Authentification", "description": "Gestion de l'authentification et des sessions" },
+    { "name": "Clients", "description": "Gestion des clients et prospects" },
+    { "name": "Factures", "description": "Création et gestion des factures" },
+    { "name": "Devis", "description": "Création et gestion des devis" },
+    { "name": "Contrats", "description": "Gestion des contrats et signatures électroniques" },
+    { "name": "Notes", "description": "Notes, rappels et pièces jointes" },
+    { "name": "Tickets", "description": "Système de tickets support" },
+    { "name": "Domaines", "description": "Gestion des noms de domaine" },
+    { "name": "Abonnements", "description": "Gestion des abonnements récurrents" },
+    { "name": "Trésorerie", "description": "Comptes bancaires et transactions" },
+    { "name": "Services", "description": "Catalogue de services" },
+    { "name": "Utilisateurs", "description": "Gestion des utilisateurs" },
+    { "name": "Paiements", "description": "Intégrations Revolut et paiements" },
+    { "name": "Banque", "description": "Intégration GoCardless" },
+    { "name": "Portail Client", "description": "API du portail client" },
+    { "name": "Paramètres", "description": "Configuration de l'application" },
+    { "name": "Public", "description": "Endpoints publics sans authentification" }
+  ],
+  "paths": {
+    "/auth/me": {
+      "get": {
+        "tags": ["Authentification"],
+        "summary": "Utilisateur courant",
+        "description": "Récupère les informations de l'utilisateur connecté",
+        "operationId": "getCurrentUser",
+        "responses": {
+          "200": {
+            "description": "Informations utilisateur",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CurrentUser" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        },
+        "security": [{ "session": [] }]
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "tags": ["Authentification"],
+        "summary": "Mot de passe oublié",
+        "description": "Envoie un email de réinitialisation de mot de passe",
+        "operationId": "forgotPassword",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email envoyé (si l'adresse existe)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/reset-password": {
+      "post": {
+        "tags": ["Authentification"],
+        "summary": "Réinitialiser le mot de passe",
+        "operationId": "resetPassword",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "password"],
+                "properties": {
+                  "token": { "type": "string" },
+                  "password": { "type": "string", "minLength": 8 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Mot de passe mis à jour" },
+          "400": { "description": "Token invalide ou expiré" }
+        }
+      }
+    },
+    "/clients": {
+      "get": {
+        "tags": ["Clients"],
+        "summary": "Liste des clients",
+        "description": "Récupère la liste paginée des clients avec filtrage",
+        "operationId": "listClients",
+        "parameters": [
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/PerPage" },
+          { "$ref": "#/components/parameters/Search" },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["all", "active", "prospect", "inactive"],
+              "default": "all"
+            }
+          },
+          { "$ref": "#/components/parameters/SortBy" },
+          { "$ref": "#/components/parameters/SortOrder" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste des clients",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "clients": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Client" }
+                    },
+                    "stats": { "$ref": "#/components/schemas/ClientStats" },
+                    "pagination": { "$ref": "#/components/schemas/Pagination" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        },
+        "security": [{ "session": [] }]
+      },
+      "post": {
+        "tags": ["Clients"],
+        "summary": "Créer un client",
+        "operationId": "createClient",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ClientInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Client créé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "success": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        },
+        "security": [{ "session": [] }]
+      }
+    },
+    "/clients/{id}": {
+      "get": {
+        "tags": ["Clients"],
+        "summary": "Détails d'un client",
+        "operationId": "getClient",
+        "parameters": [
+          { "$ref": "#/components/parameters/Id" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Détails du client",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ClientDetail" }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        },
+        "security": [{ "session": [] }]
+      },
+      "put": {
+        "tags": ["Clients"],
+        "summary": "Modifier un client",
+        "operationId": "updateClient",
+        "parameters": [
+          { "$ref": "#/components/parameters/Id" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ClientInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Client mis à jour" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        },
+        "security": [{ "session": [] }]
+      },
+      "delete": {
+        "tags": ["Clients"],
+        "summary": "Supprimer un client",
+        "operationId": "deleteClient",
+        "parameters": [
+          { "$ref": "#/components/parameters/Id" }
+        ],
+        "responses": {
+          "200": { "description": "Client supprimé" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        },
+        "security": [{ "session": [] }]
+      }
+    },
+    "/invoices": {
+      "get": {
+        "tags": ["Factures"],
+        "summary": "Liste des factures",
+        "description": "Récupère la liste paginée des factures avec statistiques",
+        "operationId": "listInvoices",
+        "parameters": [
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/PerPage" },
+          { "$ref": "#/components/parameters/Search" },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["all", "draft", "sent", "pending", "paid", "overdue", "cancelled"]
+            }
+          },
+          {
+            "name": "clientId",
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "dateFrom",
+            "in": "query",
+            "schema": { "type": "string", "format": "date" }
+          },
+          {
+            "name": "dateTo",
+            "in": "query",
+            "schema": { "type": "string", "format": "date" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste des factures",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "invoices": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Invoice" }
+                    },
+                    "stats": { "$ref": "#/components/schemas/InvoiceStats" },
+                    "pagination": { "$ref": "#/components/schemas/Pagination" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "session": [] }]
+      },
+      "post": {
+        "tags": ["Factures"],
+        "summary": "Créer une facture",
+        "operationId": "createInvoice",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/InvoiceInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Facture créée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "invoiceNumber": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "session": [] }]
+      }
+    },
+    "/invoices/{id}": {
+      "get": {
+        "tags": ["Factures"],
+        "summary": "Détails d'une facture",
+        "operationId": "getInvoice",
+        "parameters": [{ "$ref": "#/components/parameters/Id" }],
+        "responses": {
+          "200": {
+            "description": "Détails de la facture",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/InvoiceDetail" }
+              }
+            }
+          }
+        },
+        "security": [{ "session": [] }]
+      },
+      "put": {
+        "tags": ["Factures"],
+        "summary": "Modifier une facture",
+        "operationId": "updateInvoice",
+        "parameters": [{ "$ref": "#/components/parameters/Id" }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/InvoiceInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Facture mise à jour" }
+        },
+        "security": [{ "session": [] }]
+      },
+      "delete": {
+        "tags": ["Factures"],
+        "summary": "Supprimer une facture",
+        "operationId": "deleteInvoice",
+        "parameters": [{ "$ref": "#/components/parameters/Id" }],
+        "responses": {
+          "200": { "description": "Facture supprimée" }
+        },
+        "security": [{ "session": [] }]
+      }
+    },
+    "/invoices/{id}/mark-paid": {
+      "post": {
+        "tags": ["Factures"],
+        "summary": "Marquer comme payée",
+        "operationId": "markInvoicePaid",
+        "parameters": [{ "$ref": "#/components/parameters/Id" }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "paymentDate": { "type": "string", "format": "date" },
+                  "paymentMethod": {
+                    "type": "string",
+                    "enum": ["virement", "cb", "cheque", "especes", "prelevement"]
+                  },
+                  "paymentNotes": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Facture marquée comme payée" }
+        },
+        "security": [{ "session": [] }]
+      }
+    },
+    "/invoices/{id}/pdf": {
+      "get": {
+        "tags": ["Factures"],
+        "summary": "Générer PDF",
+        "operationId": "getInvoicePdf",
+        "parameters": [{ "$ref": "#/components/parameters/Id" }],
+        "responses": {
+          "200": {
+            "description": "PDF de la facture",
+            "content": {
+              "application/pdf": {
+                "schema": { "type": "string", "format": "binary" }
+              }
+            }
+          }
+        },
+        "security": [{ "session": [] }]
+      }
+    },
+    "/invoices/{id}/send": {
+      "post": {
+        "tags": ["Factures"],
+        "summary": "Envoyer par email",
+        "operationId": "sendInvoice",
+        "parameters": [{ "$ref": "#/components/parameters/Id" }],
+        "responses": {
+          "200": { "description": "Facture envoyée" }
+        },
+        "security": [{ "session": [] }]
+      }
+    },
+    "/quotes": {
+      "get": {
+        "tags": ["Devis"],
+        "summary": "Liste des devis",
+        "operationId": "listQuotes",
+        "parameters": [
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/PerPage" },
+          { "$ref": "#/components/parameters/Search" },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["all", "draft", "sent", "accepted", "rejected", "expired", "converted"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste des devis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "quotes": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Quote" }
+                    },
+                    "pagination": { "$ref": "#/components/schemas/Pagination" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "session": [] }]
+      },
+      "post": {
+        "tags": ["Devis"],
+        "summary": "Créer un devis",
+        "operationId": "createQuote",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/QuoteInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Devis créé" }
+        },
+        "security": [{ "session": [] }]
+      }
+    },
+    "/quotes/{id}/actions": {
+      "post": {
+        "tags": ["Devis"],
+        "summary": "Action sur devis",
+        "description": "Convertir en facture, marquer comme envoyé/accepté/refusé",
+        "operationId": "quoteAction",
+        "parameters": [{ "$ref": "#/components/parameters/Id" }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["action"],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": ["convert_to_invoice", "mark_sent", "mark_accepted", "mark_rejected"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Action effectuée" }
+        },
+        "security": [{ "session": [] }]
+      }
+    },
+    "/revolut/payment-link": {
+      "post": {
+        "tags": ["Paiements"],
+        "summary": "Créer lien de paiement",
+        "description": "Génère un lien de paiement Revolut pour une facture",
+        "operationId": "createPaymentLink",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["invoiceId", "amount"],
+                "properties": {
+                  "invoiceId": { "type": "string" },
+                  "amount": { "type": "number" },
+                  "currency": { "type": "string", "default": "EUR" },
+                  "description": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Lien de paiement créé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "paymentLink": { "type": "string", "format": "uri" },
+                    "orderId": { "type": "string" },
+                    "orderState": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "session": [] }]
+      }
+    },
+    "/revolut/check-payment": {
+      "post": {
+        "tags": ["Paiements"],
+        "summary": "Vérifier paiement",
+        "operationId": "checkPayment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["invoiceId"],
+                "properties": {
+                  "invoiceId": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Statut du paiement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["pending", "paid", "no_link", "error", "processing", "authorised", "cancelled", "failed"]
+                    },
+                    "message": { "type": "string" },
+                    "paidAt": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "session": [] }]
+      }
+    },
+    "/gocardless/institutions": {
+      "get": {
+        "tags": ["Banque"],
+        "summary": "Liste des banques",
+        "description": "Récupère la liste des banques disponibles pour connexion",
+        "operationId": "listInstitutions",
+        "parameters": [
+          {
+            "name": "country",
+            "in": "query",
+            "schema": { "type": "string", "default": "FR" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste des institutions bancaires"
+          }
+        },
+        "security": [{ "session": [] }]
+      }
+    },
+    "/gocardless/connect": {
+      "post": {
+        "tags": ["Banque"],
+        "summary": "Connecter une banque",
+        "operationId": "connectBank",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["institutionId"],
+                "properties": {
+                  "institutionId": { "type": "string" },
+                  "institutionName": { "type": "string" },
+                  "maxHistoricalDays": { "type": "integer", "default": 90 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "URL de connexion bancaire",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "link": { "type": "string", "format": "uri" },
+                    "requisitionId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "session": [] }]
+      }
+    },
+    "/gocardless/sync": {
+      "post": {
+        "tags": ["Banque"],
+        "summary": "Synchroniser transactions",
+        "operationId": "syncTransactions",
+        "responses": {
+          "200": { "description": "Synchronisation lancée" }
+        },
+        "security": [{ "session": [] }]
+      }
+    },
+    "/public/invoice/{token}": {
+      "get": {
+        "tags": ["Public"],
+        "summary": "Voir facture publique",
+        "description": "Affiche une facture via son token public (sans authentification)",
+        "operationId": "getPublicInvoice",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Données de la facture",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PublicInvoice" }
+              }
+            }
+          },
+          "404": { "description": "Facture non trouvée" }
+        }
+      }
+    },
+    "/public/quote/{token}": {
+      "get": {
+        "tags": ["Public"],
+        "summary": "Voir devis public",
+        "operationId": "getPublicQuote",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Données du devis" },
+          "404": { "description": "Devis non trouvé" }
+        }
+      }
+    },
+    "/public/quote/{token}/respond": {
+      "post": {
+        "tags": ["Public"],
+        "summary": "Répondre au devis",
+        "description": "Permet au client d'accepter ou refuser un devis",
+        "operationId": "respondToQuote",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": ["accepted", "rejected"]
+                  },
+                  "notes": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Réponse enregistrée" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "next-auth.session-token",
+        "description": "Cookie de session NextAuth.js"
+      }
+    },
+    "parameters": {
+      "Id": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "description": "Identifiant unique de la ressource"
+      },
+      "Page": {
+        "name": "page",
+        "in": "query",
+        "schema": { "type": "integer", "minimum": 1, "default": 1 },
+        "description": "Numéro de page"
+      },
+      "PerPage": {
+        "name": "perPage",
+        "in": "query",
+        "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 15 },
+        "description": "Éléments par page"
+      },
+      "Search": {
+        "name": "search",
+        "in": "query",
+        "schema": { "type": "string" },
+        "description": "Recherche textuelle"
+      },
+      "SortBy": {
+        "name": "sortBy",
+        "in": "query",
+        "schema": { "type": "string" },
+        "description": "Champ de tri"
+      },
+      "SortOrder": {
+        "name": "sortOrder",
+        "in": "query",
+        "schema": { "type": "string", "enum": ["asc", "desc"], "default": "asc" },
+        "description": "Ordre de tri"
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Non authentifié",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string", "example": "Unauthorized" }
+              }
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Ressource non trouvée",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string", "example": "Not found" }
+              }
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Requête invalide",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string" },
+                "details": { "type": "object" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "CurrentUser": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "type": { "type": "string", "enum": ["super_admin", "tenant_owner", "tenant_admin", "tenant_user", "client"] },
+          "clientId": { "type": "string", "nullable": true },
+          "clientName": { "type": "string", "nullable": true }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "page": { "type": "integer" },
+          "perPage": { "type": "integer" },
+          "total": { "type": "integer" },
+          "totalPages": { "type": "integer" }
+        }
+      },
+      "Client": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "companyName": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "phone": { "type": "string" },
+          "status": { "type": "string", "enum": ["prospect", "active", "inactive"] },
+          "city": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ClientDetail": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Client" },
+          {
+            "type": "object",
+            "properties": {
+              "siret": { "type": "string" },
+              "siren": { "type": "string" },
+              "vatNumber": { "type": "string" },
+              "address": { "type": "string" },
+              "postalCode": { "type": "string" },
+              "country": { "type": "string" },
+              "notes": { "type": "string" },
+              "invoices": { "type": "array", "items": { "$ref": "#/components/schemas/Invoice" } },
+              "quotes": { "type": "array", "items": { "$ref": "#/components/schemas/Quote" } }
+            }
+          }
+        ]
+      },
+      "ClientInput": {
+        "type": "object",
+        "required": ["companyName"],
+        "properties": {
+          "companyName": { "type": "string", "maxLength": 255 },
+          "client_type": { "type": "string", "enum": ["company", "individual"], "default": "company" },
+          "first_name": { "type": "string" },
+          "last_name": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "phone": { "type": "string" },
+          "siret": { "type": "string", "pattern": "^[0-9]{14}$" },
+          "siren": { "type": "string", "pattern": "^[0-9]{9}$" },
+          "vatNumber": { "type": "string" },
+          "address": { "type": "string" },
+          "postalCode": { "type": "string" },
+          "city": { "type": "string" },
+          "country": { "type": "string", "default": "France" },
+          "status": { "type": "string", "enum": ["prospect", "active", "inactive"], "default": "prospect" }
+        }
+      },
+      "ClientStats": {
+        "type": "object",
+        "properties": {
+          "total": { "type": "integer" },
+          "active": { "type": "integer" },
+          "prospect": { "type": "integer" },
+          "inactive": { "type": "integer" }
+        }
+      },
+      "Invoice": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "invoiceNumber": { "type": "string", "example": "FAC-2025-0001" },
+          "status": { "type": "string", "enum": ["draft", "sent", "pending", "paid", "overdue", "cancelled"] },
+          "totalHt": { "type": "number", "format": "float" },
+          "totalTtc": { "type": "number", "format": "float" },
+          "issueDate": { "type": "string", "format": "date" },
+          "dueDate": { "type": "string", "format": "date" },
+          "paymentDate": { "type": "string", "format": "date", "nullable": true },
+          "client": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "companyName": { "type": "string" }
+            }
+          }
+        }
+      },
+      "InvoiceDetail": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Invoice" },
+          {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/InvoiceItem" }
+              },
+              "notes": { "type": "string" },
+              "publicToken": { "type": "string" }
+            }
+          }
+        ]
+      },
+      "InvoiceItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "description": { "type": "string" },
+          "quantity": { "type": "number" },
+          "unit": { "type": "string" },
+          "unitPriceHt": { "type": "number" },
+          "vatRate": { "type": "number" },
+          "totalHt": { "type": "number" },
+          "totalTtc": { "type": "number" }
+        }
+      },
+      "InvoiceInput": {
+        "type": "object",
+        "required": ["clientId", "issueDate", "dueDate", "items"],
+        "properties": {
+          "clientId": { "type": "string" },
+          "issueDate": { "type": "string", "format": "date" },
+          "dueDate": { "type": "string", "format": "date" },
+          "status": { "type": "string", "default": "draft" },
+          "invoiceType": { "type": "string", "enum": ["standard", "proforma", "avoir"], "default": "standard" },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["description", "quantity", "unitPriceHt"],
+              "properties": {
+                "description": { "type": "string" },
+                "quantity": { "type": "number", "minimum": 0.01 },
+                "unit": { "type": "string", "default": "unité" },
+                "unitPriceHt": { "type": "number" },
+                "vatRate": { "type": "number", "default": 20 },
+                "serviceId": { "type": "string" }
+              }
+            }
+          },
+          "discountType": { "type": "string", "enum": ["percentage", "fixed"] },
+          "discountValue": { "type": "number" },
+          "notes": { "type": "string" }
+        }
+      },
+      "InvoiceStats": {
+        "type": "object",
+        "properties": {
+          "counts": {
+            "type": "object",
+            "properties": {
+              "total": { "type": "integer" },
+              "draft": { "type": "integer" },
+              "sent": { "type": "integer" },
+              "pending": { "type": "integer" },
+              "paid": { "type": "integer" },
+              "overdue": { "type": "integer" },
+              "cancelled": { "type": "integer" }
+            }
+          },
+          "amounts": {
+            "type": "object",
+            "properties": {
+              "paidThisYear": { "type": "number" },
+              "pending": { "type": "number" },
+              "totalThisYear": { "type": "number" }
+            }
+          }
+        }
+      },
+      "Quote": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "quoteNumber": { "type": "string", "example": "DEV-2025-0001" },
+          "status": { "type": "string", "enum": ["draft", "sent", "accepted", "rejected", "expired", "converted"] },
+          "totalHt": { "type": "number" },
+          "totalTtc": { "type": "number" },
+          "issueDate": { "type": "string", "format": "date" },
+          "validUntil": { "type": "string", "format": "date" },
+          "client": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "companyName": { "type": "string" }
+            }
+          }
+        }
+      },
+      "QuoteInput": {
+        "type": "object",
+        "required": ["clientId", "issueDate", "validUntil", "items"],
+        "properties": {
+          "clientId": { "type": "string" },
+          "issueDate": { "type": "string", "format": "date" },
+          "validUntil": { "type": "string", "format": "date" },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "description": { "type": "string" },
+                "quantity": { "type": "number" },
+                "unit": { "type": "string" },
+                "unitPriceHt": { "type": "number" },
+                "vatRate": { "type": "number", "default": 20 }
+              }
+            }
+          },
+          "notes": { "type": "string" }
+        }
+      },
+      "PublicInvoice": {
+        "type": "object",
+        "properties": {
+          "invoiceNumber": { "type": "string" },
+          "status": { "type": "string" },
+          "totalHt": { "type": "number" },
+          "totalTtc": { "type": "number" },
+          "issueDate": { "type": "string", "format": "date" },
+          "dueDate": { "type": "string", "format": "date" },
+          "items": { "type": "array" },
+          "company": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "address": { "type": "string" },
+              "siret": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
