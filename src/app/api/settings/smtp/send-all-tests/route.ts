@@ -6,6 +6,8 @@ import {
   sendSignatureRequestEmail,
   sendInvoiceEmail,
   sendQuoteEmail,
+  sendInvoiceReminderEmail,
+  sendInvoiceDueSoonEmail,
 } from "@/lib/email"
 import { prisma } from "@/lib/prisma"
 
@@ -176,80 +178,17 @@ export async function POST(request: NextRequest) {
 
     // 8. Email Relance facture impayée
     try {
-      const overdueHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
-          <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-            <div style="background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-              <!-- Header -->
-              <div style="background: linear-gradient(135deg, #DC2626 0%, #F97316 100%); padding: 30px; text-align: center;">
-                <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">
-                  Rappel de Paiement
-                </h1>
-              </div>
-
-              <!-- Content -->
-              <div style="padding: 30px;">
-                <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
-                  Bonjour,
-                </p>
-                <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
-                  Votre facture FAC-TEST-001 de ${formatCurrency(750)} est en retard de 7 jours.
-                </p>
-
-                <!-- Invoice Summary -->
-                <div style="background: #F5F5F5; border-radius: 12px; padding: 20px; margin: 20px 0; border-left: 4px solid #DC2626;">
-                  <table style="width: 100%; border-collapse: collapse;">
-                    <tr>
-                      <td style="color: #666; padding: 8px 0;">Numéro de facture</td>
-                      <td style="color: #333; font-weight: 600; text-align: right;">FAC-TEST-001</td>
-                    </tr>
-                    <tr>
-                      <td style="color: #666; padding: 8px 0;">Montant TTC</td>
-                      <td style="color: #333; font-weight: 600; text-align: right;">${formatCurrency(750)}</td>
-                    </tr>
-                    <tr>
-                      <td style="color: #666; padding: 8px 0;">Échéance</td>
-                      <td style="color: #DC2626; font-weight: 600; text-align: right;">
-                        ${new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString("fr-FR")} (7j de retard)
-                      </td>
-                    </tr>
-                  </table>
-                </div>
-
-                <!-- CTA Button -->
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="${baseUrl}/client/invoices/test-token-relance" style="display: inline-block; background: #DC2626; color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 14px;">
-                    Voir et payer la facture
-                  </a>
-                </div>
-
-                <p style="color: #666; font-size: 14px; line-height: 1.6; margin: 20px 0 0;">
-                  Si vous avez déjà effectué le paiement, merci de ne pas tenir compte de ce message.
-                </p>
-              </div>
-
-              <!-- Footer -->
-              <div style="background: #F9F9F9; padding: 20px; text-align: center; border-top: 1px solid #EEE;">
-                <p style="color: #999; font-size: 12px; margin: 0;">
-                  ${companyName} | Cet email a été envoyé automatiquement
-                </p>
-              </div>
-            </div>
-          </div>
-        </body>
-        </html>
-      `
-      await sendEmail({
-        to: email,
-        subject: `[Rappel] Facture FAC-TEST-001 en retard de paiement - ${companyName}`,
-        html: overdueHtml,
-      })
+      await sendInvoiceReminderEmail(
+        email,
+        "Julien (Test)",
+        "FAC-TEST-001",
+        formatCurrency(750),
+        new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString("fr-FR"),
+        7,
+        `${baseUrl}/client/invoices/test-token-relance`,
+        companyName,
+        logoUrl
+      )
       results.push({ type: "Relance facture impayée", success: true })
     } catch (e) {
       results.push({ type: "Relance facture impayée", success: false, error: (e as Error).message })
@@ -257,80 +196,17 @@ export async function POST(request: NextRequest) {
 
     // 9. Email Relance facture proche échéance
     try {
-      const dueSoonHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
-          <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-            <div style="background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-              <!-- Header -->
-              <div style="background: linear-gradient(135deg, #0064FA 0%, #5F00BA 100%); padding: 30px; text-align: center;">
-                <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">
-                  Échéance Proche
-                </h1>
-              </div>
-
-              <!-- Content -->
-              <div style="padding: 30px;">
-                <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
-                  Bonjour,
-                </p>
-                <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
-                  Votre facture FAC-TEST-002 de ${formatCurrency(1200)} arrive à échéance le ${new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString("fr-FR")}.
-                </p>
-
-                <!-- Invoice Summary -->
-                <div style="background: #F5F5F5; border-radius: 12px; padding: 20px; margin: 20px 0; border-left: 4px solid #0064FA;">
-                  <table style="width: 100%; border-collapse: collapse;">
-                    <tr>
-                      <td style="color: #666; padding: 8px 0;">Numéro de facture</td>
-                      <td style="color: #333; font-weight: 600; text-align: right;">FAC-TEST-002</td>
-                    </tr>
-                    <tr>
-                      <td style="color: #666; padding: 8px 0;">Montant TTC</td>
-                      <td style="color: #333; font-weight: 600; text-align: right;">${formatCurrency(1200)}</td>
-                    </tr>
-                    <tr>
-                      <td style="color: #666; padding: 8px 0;">Échéance</td>
-                      <td style="color: #333; font-weight: 600; text-align: right;">
-                        ${new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString("fr-FR")}
-                      </td>
-                    </tr>
-                  </table>
-                </div>
-
-                <!-- CTA Button -->
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="${baseUrl}/client/invoices/test-token-due-soon" style="display: inline-block; background: #0064FA; color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 14px;">
-                    Voir et payer la facture
-                  </a>
-                </div>
-
-                <p style="color: #666; font-size: 14px; line-height: 1.6; margin: 20px 0 0;">
-                  Si vous avez déjà effectué le paiement, merci de ne pas tenir compte de ce message.
-                </p>
-              </div>
-
-              <!-- Footer -->
-              <div style="background: #F9F9F9; padding: 20px; text-align: center; border-top: 1px solid #EEE;">
-                <p style="color: #999; font-size: 12px; margin: 0;">
-                  ${companyName} | Cet email a été envoyé automatiquement
-                </p>
-              </div>
-            </div>
-          </div>
-        </body>
-        </html>
-      `
-      await sendEmail({
-        to: email,
-        subject: `Rappel: Facture FAC-TEST-002 arrive à échéance - ${companyName}`,
-        html: dueSoonHtml,
-      })
+      await sendInvoiceDueSoonEmail(
+        email,
+        "Julien (Test)",
+        "FAC-TEST-002",
+        formatCurrency(1200),
+        new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString("fr-FR"),
+        3,
+        `${baseUrl}/client/invoices/test-token-due-soon`,
+        companyName,
+        logoUrl
+      )
       results.push({ type: "Relance facture proche échéance", success: true })
     } catch (e) {
       results.push({ type: "Relance facture proche échéance", success: false, error: (e as Error).message })
