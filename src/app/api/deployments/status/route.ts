@@ -1,26 +1,12 @@
 import { NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
 
-// Dokploy servers configuration from environment variables
-const DOKPLOY_SERVERS = [
-  {
-    id: 7,
-    name: "Orion",
-    url: process.env.DOKPLOY_ORION_URL || "",
-    token: process.env.DOKPLOY_ORION_TOKEN || "",
-  },
-  {
-    id: 8,
-    name: "Andromeda",
-    url: process.env.DOKPLOY_ANDROMEDA_URL || "",
-    token: process.env.DOKPLOY_ANDROMEDA_TOKEN || "",
-  },
-  {
-    id: 9,
-    name: "Cassiopeia",
-    url: process.env.DOKPLOY_CASSIOPEIA_URL || "",
-    token: process.env.DOKPLOY_CASSIOPEIA_TOKEN || "",
-  },
-].filter(s => s.url && s.token)
+interface DokployServer {
+  id: bigint
+  name: string
+  url: string
+  apiToken: string
+}
 
 interface Deployment {
   id: string
@@ -32,20 +18,45 @@ interface Deployment {
   duration?: number
 }
 
+async function getDokployServers(): Promise<DokployServer[]> {
+  try {
+    const servers = await prisma.dokployServer.findMany({
+      where: {
+        tenant_id: BigInt(1),
+        isActive: true,
+      },
+    })
+    return servers
+  } catch (error) {
+    console.error("Error fetching Dokploy servers from DB:", error)
+    return []
+  }
+}
+
 // GET: Fetch active deployments from all Dokploy servers
 export async function GET() {
   try {
+    const dokployServers = await getDokployServers()
+
+    if (dokployServers.length === 0) {
+      return NextResponse.json({
+        deployments: [],
+        count: 0,
+        timestamp: new Date().toISOString(),
+      })
+    }
+
     const activeDeployments: Deployment[] = []
 
     // Fetch from all servers in parallel
     const results = await Promise.allSettled(
-      DOKPLOY_SERVERS.map(async (server) => {
+      dokployServers.map(async (server) => {
         try {
           // Get all projects with their applications
           const response = await fetch(`${server.url}/api/trpc/project.all`, {
             method: "GET",
             headers: {
-              "x-api-key": server.token,
+              "x-api-key": server.apiToken,
               "Content-Type": "application/json",
             },
           })
@@ -71,7 +82,7 @@ export async function GET() {
                     {
                       method: "GET",
                       headers: {
-                        "x-api-key": server.token,
+                        "x-api-key": server.apiToken,
                         "Content-Type": "application/json",
                       },
                     }

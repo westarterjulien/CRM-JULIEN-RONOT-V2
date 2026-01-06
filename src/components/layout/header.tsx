@@ -140,7 +140,9 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   const fetchDeployments = useCallback(async () => {
     try {
-      const res = await fetch("/api/deployments/status")
+      const res = await fetch("/api/deployments/status", {
+        credentials: "include",
+      })
       if (res.ok) {
         const data = await res.json()
         setActiveDeployments(data.deployments || [])

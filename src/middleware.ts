@@ -15,7 +15,6 @@ const PUBLIC_ROUTES = [
   "/api/campaigns/track",
   "/api/releases",
   "/api/tenant", // Public for login page to show logo/name
-  "/api/deployments", // Public for deployment overlay/navbar indicator
 ]
 
 // Routes that require CRON_SECRET header
