@@ -18,6 +18,7 @@ import {
   Users, StickyNote, Kanban, ChevronDown, ChevronRight, Info
 } from "lucide-react"
 import { ClientUsersTab } from "@/components/clients/client-users-tab"
+import { ClientEmailsTab } from "@/components/clients/ClientEmailsTab"
 import { NoteEntityTab } from "@/components/notes"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { cn } from "@/lib/utils"
@@ -674,6 +675,7 @@ export default function ClientDetailPage() {
                 { id: "domains", label: "Domaines", icon: Globe, count: client.domains.length, color: "#F04B69", bg: "#FEE2E8" },
                 { id: "tickets", label: "Tickets", icon: Ticket, count: client.tickets.length, color: "#F0783C", bg: "#FFF0E6" },
                 { id: "projects", label: "Projets", icon: Kanban, count: client.projects?.length || 0, color: "#5F00BA", bg: "#F3E8FF" },
+                { id: "emails", label: "Emails", icon: Mail, count: null, color: "#0064FA", bg: "#E6F0FF" },
                 { id: "users", label: "Utilisateurs", icon: Users, count: null, color: "#666666", bg: "#F5F5F7" },
                 { id: "notes", label: "Notes", icon: StickyNote, count: null, color: "#666666", bg: "#F5F5F7" },
               ].map((item) => (
@@ -731,6 +733,7 @@ export default function ClientDetailPage() {
               <SelectItem value="domains">Domaines ({client.domains.length})</SelectItem>
               <SelectItem value="tickets">Tickets ({client.tickets.length})</SelectItem>
               <SelectItem value="projects">Projets ({client.projects?.length || 0})</SelectItem>
+              <SelectItem value="emails">Emails</SelectItem>
               <SelectItem value="users">Utilisateurs</SelectItem>
               <SelectItem value="notes">Notes</SelectItem>
             </SelectContent>
@@ -1283,6 +1286,11 @@ export default function ClientDetailPage() {
                   </div>
                 </div>
               )
+            )}
+
+            {/* Emails */}
+            {activeSection === "emails" && (
+              <ClientEmailsTab clientId={client.id} />
             )}
 
             {/* Users */}
