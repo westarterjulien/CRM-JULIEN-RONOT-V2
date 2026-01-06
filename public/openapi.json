@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "CRM Luelis API",
-    "description": "API complète du CRM Luelis pour la gestion des clients, factures, devis, contrats, tickets, domaines, trésorerie et plus encore.\n\n## Authentification\nLa plupart des endpoints nécessitent une authentification via cookie de session NextAuth.js.\n\n## Format des réponses\nToutes les réponses sont en JSON. Les BigInt sont sérialisés en strings.",
+    "description": "API complète du CRM Luelis pour la gestion des clients, factures, devis, contrats, tickets, domaines, trésorerie et plus encore.\n\n## Authentification\nLa plupart des endpoints nécessitent une authentification via cookie de session NextAuth.js.\n\n## Endpoints publics (sans authentification)\nLes endpoints suivants sont accessibles sans authentification :\n- `POST /auth/forgot-password` - Demande de réinitialisation de mot de passe\n- `POST /auth/reset-password` - Réinitialisation avec token\n- `POST /auth/accept-invitation` - Acceptation d'invitation\n- `GET /public/invoice/{token}` - Consulter une facture via lien public\n- `GET /public/quote/{token}` - Consulter un devis via lien public\n- `POST /public/quote/{token}/respond` - Répondre à un devis\n- `GET /releases` - Liste des releases (auto-update Electron)\n- `POST /webhooks/docuseal` - Webhook DocuSeal\n- `GET/POST /revolut/webhook` - Webhooks Revolut\n\n## Format des réponses\nToutes les réponses sont en JSON. Les BigInt sont sérialisés en strings.",
     "version": "2.0.0",
     "contact": {
       "name": "Support Luelis",
@@ -99,7 +99,8 @@
               }
             }
           }
-        }
+        },
+        "security": []
       }
     },
     "/auth/reset-password": {
@@ -125,7 +126,8 @@
         "responses": {
           "200": { "description": "Mot de passe mis à jour" },
           "400": { "description": "Token invalide ou expiré" }
-        }
+        },
+        "security": []
       }
     },
     "/auth/accept-invitation": {
@@ -153,7 +155,8 @@
         "responses": {
           "200": { "description": "Compte créé avec succès" },
           "400": { "description": "Token invalide" }
-        }
+        },
+        "security": []
       }
     },
     "/auth/impersonate": {
@@ -1774,18 +1777,36 @@
       "get": {
         "tags": ["Webhooks"],
         "summary": "Vérification webhook Revolut",
+        "description": "Endpoint de vérification pour Revolut. Accessible sans authentification.",
         "operationId": "verifyRevolutWebhook",
         "responses": {
           "200": { "description": "Webhook actif" }
-        }
+        },
+        "security": []
       },
       "post": {
         "tags": ["Webhooks"],
         "summary": "Webhook Revolut",
+        "description": "Reçoit les événements de paiement Revolut. Accessible sans authentification (signature HMAC requise).",
         "operationId": "revolutWebhook",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "event": { "type": "string", "example": "ORDER_COMPLETED" },
+                  "order_id": { "type": "string" },
+                  "merchant_order_ext_ref": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
         "responses": {
-          "200": { "description": "Traité" }
-        }
+          "200": { "description": "Événement traité" }
+        },
+        "security": []
       }
     },
     "/gocardless/institutions": {
@@ -2361,55 +2382,77 @@
       "get": {
         "tags": ["Public"],
         "summary": "Facture publique",
-        "description": "Affiche une facture via token (incrémente compteur vues)",
+        "description": "Affiche une facture via token (incrémente compteur vues). Endpoint accessible sans authentification.",
         "operationId": "getPublicInvoice",
         "parameters": [
-          { "name": "token", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "name": "token", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Token unique de la facture" }
         ],
         "responses": {
-          "200": { "description": "Données facture" },
-          "404": { "description": "Non trouvée" }
-        }
+          "200": {
+            "description": "Données facture",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PublicInvoice" }
+              }
+            }
+          },
+          "404": { "description": "Facture non trouvée" }
+        },
+        "security": []
       }
     },
     "/public/quote/{token}": {
       "get": {
         "tags": ["Public"],
         "summary": "Devis public",
+        "description": "Affiche un devis via token. Endpoint accessible sans authentification.",
         "operationId": "getPublicQuote",
         "parameters": [
-          { "name": "token", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "name": "token", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Token unique du devis" }
         ],
         "responses": {
-          "200": { "description": "Données devis" }
-        }
+          "200": {
+            "description": "Données devis",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PublicQuote" }
+              }
+            }
+          },
+          "404": { "description": "Devis non trouvé" }
+        },
+        "security": []
       }
     },
     "/public/quote/{token}/respond": {
       "post": {
         "tags": ["Public"],
         "summary": "Répondre au devis",
+        "description": "Permet au client d'accepter ou refuser un devis. Endpoint accessible sans authentification.",
         "operationId": "respondToQuote",
         "parameters": [
-          { "name": "token", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "name": "token", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Token unique du devis" }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "required": ["status"],
                 "properties": {
-                  "status": { "type": "string", "enum": ["accepted", "rejected"] },
-                  "notes": { "type": "string" }
+                  "status": { "type": "string", "enum": ["accepted", "rejected"], "description": "Acceptation ou refus" },
+                  "notes": { "type": "string", "description": "Commentaires du client" }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "Réponse enregistrée" }
-        }
+          "200": { "description": "Réponse enregistrée" },
+          "404": { "description": "Devis non trouvé" }
+        },
+        "security": []
       }
     },
     "/client-portal/dashboard": {
@@ -2632,21 +2675,56 @@
       "post": {
         "tags": ["Webhooks"],
         "summary": "Webhook DocuSeal",
-        "description": "Reçoit les événements de signature DocuSeal",
+        "description": "Reçoit les événements de signature DocuSeal. Accessible sans authentification (signature HMAC recommandée).",
         "operationId": "docusealWebhook",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "event_type": { "type": "string", "example": "submission.completed" },
+                  "timestamp": { "type": "string", "format": "date-time" },
+                  "data": { "type": "object" }
+                }
+              }
+            }
+          }
+        },
         "responses": {
-          "200": { "description": "Traité" }
-        }
+          "200": { "description": "Événement traité" }
+        },
+        "security": []
       }
     },
     "/releases": {
       "get": {
         "tags": ["Public"],
         "summary": "Releases GitHub",
+        "description": "Liste des releases de l'application Electron. Endpoint public pour l'auto-update.",
         "operationId": "getReleases",
         "responses": {
-          "200": { "description": "Liste des releases" }
-        }
+          "200": {
+            "description": "Liste des releases",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "tag_name": { "type": "string", "example": "v1.1.3" },
+                      "name": { "type": "string" },
+                      "published_at": { "type": "string", "format": "date-time" },
+                      "assets": { "type": "array" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": []
       }
     },
     "/statistics": {
@@ -2851,6 +2929,114 @@
           "perPage": { "type": "integer" },
           "total": { "type": "integer" },
           "totalPages": { "type": "integer" }
+        }
+      },
+      "PublicInvoice": {
+        "type": "object",
+        "description": "Facture accessible publiquement via token",
+        "properties": {
+          "id": { "type": "string" },
+          "invoiceNumber": { "type": "string", "example": "FAC-2025-0001" },
+          "status": { "type": "string", "enum": ["draft", "sent", "paid", "overdue", "cancelled"] },
+          "issueDate": { "type": "string", "format": "date-time" },
+          "dueDate": { "type": "string", "format": "date-time" },
+          "paymentMethod": { "type": "string", "nullable": true },
+          "notes": { "type": "string", "nullable": true },
+          "client": {
+            "type": "object",
+            "properties": {
+              "companyName": { "type": "string" },
+              "address": { "type": "string" },
+              "postalCode": { "type": "string" },
+              "city": { "type": "string" },
+              "email": { "type": "string" },
+              "siret": { "type": "string" },
+              "vatNumber": { "type": "string" }
+            }
+          },
+          "company": {
+            "type": "object",
+            "description": "Informations de l'émetteur",
+            "properties": {
+              "name": { "type": "string" },
+              "address": { "type": "string" },
+              "postalCode": { "type": "string" },
+              "city": { "type": "string" },
+              "siret": { "type": "string" },
+              "vatNumber": { "type": "string" }
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "description": { "type": "string" },
+                "quantity": { "type": "number" },
+                "unit": { "type": "string" },
+                "unitPriceHt": { "type": "number" },
+                "vatRate": { "type": "number" },
+                "totalHt": { "type": "number" },
+                "totalTtc": { "type": "number" }
+              }
+            }
+          },
+          "subtotalHt": { "type": "number" },
+          "taxAmount": { "type": "number" },
+          "discountAmount": { "type": "number" },
+          "totalTtc": { "type": "number" }
+        }
+      },
+      "PublicQuote": {
+        "type": "object",
+        "description": "Devis accessible publiquement via token",
+        "properties": {
+          "id": { "type": "string" },
+          "quoteNumber": { "type": "string", "example": "DEV-2025-0001" },
+          "status": { "type": "string", "enum": ["draft", "sent", "accepted", "rejected", "expired"] },
+          "issueDate": { "type": "string", "format": "date-time" },
+          "validUntil": { "type": "string", "format": "date-time" },
+          "notes": { "type": "string", "nullable": true },
+          "client": {
+            "type": "object",
+            "properties": {
+              "companyName": { "type": "string" },
+              "address": { "type": "string" },
+              "postalCode": { "type": "string" },
+              "city": { "type": "string" },
+              "email": { "type": "string" }
+            }
+          },
+          "company": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "address": { "type": "string" },
+              "postalCode": { "type": "string" },
+              "city": { "type": "string" }
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "description": { "type": "string" },
+                "quantity": { "type": "number" },
+                "unit": { "type": "string" },
+                "unitPriceHt": { "type": "number" },
+                "vatRate": { "type": "number" },
+                "totalHt": { "type": "number" },
+                "totalTtc": { "type": "number" }
+              }
+            }
+          },
+          "subtotalHt": { "type": "number" },
+          "taxAmount": { "type": "number" },
+          "discountAmount": { "type": "number" },
+          "totalTtc": { "type": "number" }
         }
       },
       "Client": {
