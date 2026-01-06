@@ -768,6 +768,7 @@ function SettingsContent() {
       icon: CreditCard,
       color: "#0064FA",
       schedule: "Toutes les 15 minutes",
+      cronExpression: "*/15 * * * *",
       requires: "Revolut API",
     },
     {
@@ -778,6 +779,7 @@ function SettingsContent() {
       icon: Mail,
       color: "#F04B69",
       schedule: "Tous les jours à 9h",
+      cronExpression: "0 9 * * *",
       requires: "SMTP",
     },
     {
@@ -788,6 +790,7 @@ function SettingsContent() {
       icon: Send,
       color: "#0088CC",
       schedule: "Tous les jours à 8h",
+      cronExpression: "0 8 * * *",
       requires: "Telegram Bot",
     },
     {
@@ -798,6 +801,7 @@ function SettingsContent() {
       icon: Server,
       color: "#28B95F",
       schedule: "Toutes les 5 minutes",
+      cronExpression: "*/5 * * * *",
       requires: "Dokploy API",
     },
     {
@@ -808,6 +812,7 @@ function SettingsContent() {
       icon: Landmark,
       color: "#7C3AED",
       schedule: "Toutes les 6 heures",
+      cronExpression: "0 */6 * * *",
       requires: "GoCardless API",
     },
     {
@@ -818,6 +823,7 @@ function SettingsContent() {
       icon: Mail,
       color: "#0078D4",
       schedule: "Toutes les 5 minutes",
+      cronExpression: "*/5 * * * *",
       requires: "O365 API",
     },
     {
@@ -828,6 +834,7 @@ function SettingsContent() {
       icon: Calendar,
       color: "#14B4E6",
       schedule: "Toutes les heures",
+      cronExpression: "0 * * * *",
       requires: "O365 Calendar",
     },
     {
@@ -838,6 +845,7 @@ function SettingsContent() {
       icon: Bell,
       color: "#DCB40A",
       schedule: "Toutes les minutes",
+      cronExpression: "* * * * *",
       requires: "Aucun",
     },
     {
@@ -848,6 +856,7 @@ function SettingsContent() {
       icon: MessageSquare,
       color: "#F0783C",
       schedule: "Toutes les heures",
+      cronExpression: "0 * * * *",
       requires: "Aucun",
     },
   ]
@@ -3143,39 +3152,104 @@ function SettingsContent() {
             })}
           </div>
 
-          {/* Cron URL Info */}
+          {/* Dokploy Configuration */}
           <div className="rounded-xl p-4" style={{ background: "#F8F9FA", border: "1px solid #EEEEEE" }}>
-            <h3 className="font-medium mb-3" style={{ color: "#111111" }}>Configuration externe</h3>
-            <p className="text-sm mb-3" style={{ color: "#666666" }}>
-              Pour automatiser l&apos;exécution des crons, configurez un service de cron externe (ex: cron-job.org, Uptime Robot)
-              pour appeler ces URLs avec la méthode GET ou POST.
+            <div className="flex items-center gap-2 mb-3">
+              <Server className="h-5 w-5" style={{ color: "#28B95F" }} />
+              <h3 className="font-medium" style={{ color: "#111111" }}>Configuration Dokploy</h3>
+            </div>
+            <p className="text-sm mb-4" style={{ color: "#666666" }}>
+              Copiez ces lignes dans la section &quot;Cron Jobs&quot; de votre application Dokploy.
+              Méthode : <code className="px-1.5 py-0.5 rounded text-xs" style={{ background: "#E5E7EB" }}>curl -X GET</code>
             </p>
-            <div className="space-y-2">
-              {availableCrons.slice(0, 3).map((cron) => (
-                <div key={cron.id} className="flex items-center gap-2">
-                  <code
-                    className="flex-1 px-3 py-2 rounded-lg text-xs font-mono truncate"
-                    style={{ background: "#FFFFFF", border: "1px solid #EEEEEE", color: "#374151" }}
-                  >
-                    {typeof window !== "undefined" ? window.location.origin : ""}{cron.endpoint}
-                  </code>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}${cron.endpoint}`)
-                      setCopiedCron(cron.id)
-                      setTimeout(() => setCopiedCron(null), 2000)
-                    }}
-                    className="p-2 rounded-lg transition-colors"
-                    style={{ background: copiedCron === cron.id ? "#DCFCE7" : "#FFFFFF", border: "1px solid #EEEEEE" }}
-                  >
-                    {copiedCron === cron.id ? (
-                      <CheckCircle className="h-4 w-4" style={{ color: "#16A34A" }} />
-                    ) : (
-                      <Copy className="h-4 w-4" style={{ color: "#666666" }} />
-                    )}
-                  </button>
-                </div>
-              ))}
+
+            {/* Table header */}
+            <div className="grid grid-cols-12 gap-2 px-3 py-2 rounded-t-lg text-xs font-medium" style={{ background: "#E5E7EB", color: "#374151" }}>
+              <div className="col-span-3">Nom</div>
+              <div className="col-span-2">Schedule</div>
+              <div className="col-span-6">Commande</div>
+              <div className="col-span-1"></div>
+            </div>
+
+            {/* Table rows */}
+            <div className="divide-y" style={{ borderColor: "#EEEEEE" }}>
+              {availableCrons.map((cron) => {
+                const fullUrl = typeof window !== "undefined" ? `${window.location.origin}${cron.endpoint}` : cron.endpoint
+                const curlCommand = `curl -X GET "${fullUrl}"`
+
+                return (
+                  <div key={cron.id} className="grid grid-cols-12 gap-2 px-3 py-3 items-center hover:bg-white transition-colors">
+                    <div className="col-span-3">
+                      <span className="text-sm font-medium truncate block" style={{ color: "#111111" }}>{cron.name}</span>
+                    </div>
+                    <div className="col-span-2">
+                      <code className="px-2 py-1 rounded text-xs font-mono" style={{ background: "#FEF3CD", color: "#92400E" }}>
+                        {cron.cronExpression}
+                      </code>
+                    </div>
+                    <div className="col-span-6">
+                      <code
+                        className="block px-2 py-1.5 rounded text-xs font-mono truncate"
+                        style={{ background: "#FFFFFF", border: "1px solid #EEEEEE", color: "#374151" }}
+                        title={curlCommand}
+                      >
+                        {curlCommand}
+                      </code>
+                    </div>
+                    <div className="col-span-1 flex justify-end">
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(curlCommand)
+                          setCopiedCron(cron.id)
+                          setTimeout(() => setCopiedCron(null), 2000)
+                        }}
+                        className="p-1.5 rounded-lg transition-colors"
+                        style={{ background: copiedCron === cron.id ? "#DCFCE7" : "transparent" }}
+                        title="Copier la commande"
+                      >
+                        {copiedCron === cron.id ? (
+                          <CheckCircle className="h-4 w-4" style={{ color: "#16A34A" }} />
+                        ) : (
+                          <Copy className="h-4 w-4" style={{ color: "#666666" }} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Copy all button */}
+            <div className="mt-4 pt-4" style={{ borderTop: "1px solid #EEEEEE" }}>
+              <button
+                onClick={() => {
+                  const allCommands = availableCrons.map(cron => {
+                    const fullUrl = typeof window !== "undefined" ? `${window.location.origin}${cron.endpoint}` : cron.endpoint
+                    return `# ${cron.name} (${cron.schedule})\n${cron.cronExpression} curl -X GET "${fullUrl}"`
+                  }).join("\n\n")
+                  navigator.clipboard.writeText(allCommands)
+                  setCopiedCron("all")
+                  setTimeout(() => setCopiedCron(null), 2000)
+                }}
+                className="px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
+                style={{
+                  background: copiedCron === "all" ? "#DCFCE7" : "#FFFFFF",
+                  border: "1px solid #EEEEEE",
+                  color: copiedCron === "all" ? "#16A34A" : "#374151"
+                }}
+              >
+                {copiedCron === "all" ? (
+                  <>
+                    <CheckCircle className="h-4 w-4" />
+                    Copié !
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" />
+                    Copier tous les crons
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
