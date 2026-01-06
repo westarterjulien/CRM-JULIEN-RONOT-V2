@@ -56,6 +56,18 @@ function formatDate(dateStr: string): string {
   })
 }
 
+function formatDateTime(dateStr: string): string {
+  const date = new Date(dateStr)
+  return date.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }) + " à " + date.toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
 function PlatformIcon({ platform }: { platform: string }) {
   switch (platform) {
     case "windows":
@@ -211,7 +223,7 @@ export default function DownloadPage() {
                     <Badge variant="secondary">Pré-release</Badge>
                   )}
                   <span className="text-sm text-muted-foreground ml-auto">
-                    {formatDate(data.latest.publishedAt)}
+                    {formatDateTime(data.latest.publishedAt)}
                   </span>
                 </div>
 

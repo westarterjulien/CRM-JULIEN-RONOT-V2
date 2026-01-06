@@ -444,6 +444,18 @@ export default function TreasuryPage() {
               <p className="text-sm" style={{ color: "#666666" }}>
                 Gérez vos comptes bancaires et suivez vos transactions
               </p>
+              {accounts.some(a => a.lastSyncAt) && (
+                <p className="text-xs flex items-center gap-1 mt-1" style={{ color: "#999999" }}>
+                  <Clock className="h-3 w-3" />
+                  Dernière sync: {new Date(Math.max(...accounts.filter(a => a.lastSyncAt).map(a => new Date(a.lastSyncAt!).getTime()))).toLocaleString("fr-FR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit"
+                  })}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
