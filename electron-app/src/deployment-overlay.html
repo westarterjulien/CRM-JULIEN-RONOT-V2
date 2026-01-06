@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deployment Status</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: transparent;
+      overflow: hidden;
+      -webkit-app-region: drag;
+    }
+
+    .container {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-radius: 16px;
+      padding: 16px 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .rocket {
+      width: 24px;
+      height: 24px;
+      animation: bounce 1s ease-in-out infinite;
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+
+    .title {
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .deployment-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-top-color: #0064FA;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .app-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .app-name {
+      color: #fff;
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .project-name {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #0064FA, #28B95F);
+      border-radius: 2px;
+      animation: progress 2s ease-in-out infinite;
+    }
+
+    @keyframes progress {
+      0% { width: 0%; transform: translateX(0); }
+      50% { width: 100%; }
+      100% { width: 100%; transform: translateX(100%); }
+    }
+
+    .no-deployments {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <svg class="rocket" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2C12 2 8 6 8 12C8 14 8.5 15.5 9 17L7 19L8 22L11 20C11.5 20.5 12 21 12 21C12 21 12.5 20.5 13 20L16 22L17 19L15 17C15.5 15.5 16 14 16 12C16 6 12 2 12 2Z" stroke="#0064FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="12" cy="10" r="2" fill="#28B95F"/>
+      </svg>
+      <span class="title">Deployment en cours</span>
+    </div>
+    <div id="deployments">
+      <!-- Deployments will be injected here -->
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill"></div>
+    </div>
+  </div>
+
+  <script>
+    const deploymentsContainer = document.getElementById('deployments')
+
+    // Listen for deployment updates from main process
+    if (window.electronAPI) {
+      window.electronAPI.onDeploymentUpdate((deployments) => {
+        renderDeployments(deployments)
+      })
+    }
+
+    function renderDeployments(deployments) {
+      if (!deployments || deployments.length === 0) {
+        deploymentsContainer.innerHTML = ''
+        return
+      }
+
+      deploymentsContainer.innerHTML = deployments.map(d => `
+        <div class="deployment-item">
+          <div class="spinner"></div>
+          <div class="app-info">
+            <div class="app-name">${escapeHtml(d.appName)}</div>
+            <div class="project-name">${escapeHtml(d.projectName)} • ${escapeHtml(d.serverName)}</div>
+          </div>
+        </div>
+      `).join('')
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div')
+      div.textContent = text
+      return div.innerHTML
+    }
+  </script>
+</body>
+</html>
