@@ -13,7 +13,6 @@ const PUBLIC_ROUTES = [
   "/api/tickets/o365-callback",
   "/api/auth/microsoft/callback",
   "/api/campaigns/track",
-  "/api/releases",
   "/api/tenant", // Public for login page to show logo/name
 ]
 

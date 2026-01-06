@@ -103,7 +103,9 @@ export default function DownloadPage() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch("/api/releases")
+      const response = await fetch("/api/releases", {
+        credentials: "include",
+      })
       const result = await response.json()
       setData(result)
     } catch (err) {
