@@ -5,22 +5,13 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to build (e.g., 1.0.0)'
-        required: false
-        default: '1.0.0'
 
 permissions:
   contents: write
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+  build-windows:
+    runs-on: windows-latest
 
     steps:
       - name: Checkout code
@@ -37,73 +28,21 @@ jobs:
         working-directory: electron-app
         run: npm ci
 
-      - name: Build Electron app (Windows)
-        if: matrix.os == 'windows-latest'
+      - name: Build Windows app
         working-directory: electron-app
         run: npm run build:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Electron app (macOS)
-        if: matrix.os == 'macos-latest'
-        working-directory: electron-app
-        run: npm run build:mac
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Electron app (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        working-directory: electron-app
-        run: npm run build:linux
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: List built files
         working-directory: electron-app
-        run: ls -la dist/
-
-      - name: Upload Windows artifacts
-        if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: CRM-Luelis-Windows
-          path: electron-app/dist/*Setup*.exe
-          if-no-files-found: error
-
-      - name: Upload macOS artifacts
-        if: matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: CRM-Luelis-macOS
-          path: electron-app/dist/*.dmg
-          if-no-files-found: error
-
-      - name: Upload Linux artifacts
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: CRM-Luelis-Linux
-          path: electron-app/dist/*.AppImage
-          if-no-files-found: error
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
+        run: dir dist
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: |
-            artifacts/CRM-Luelis-Windows/*
-            artifacts/CRM-Luelis-macOS/*
-            artifacts/CRM-Luelis-Linux/*
+          files: electron-app/dist/*Setup*.exe
           draft: false
           prerelease: false
         env:
