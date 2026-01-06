@@ -11,6 +11,7 @@ const store = new Store({
     startMinimized: false,
     notifications: true,
     deploymentOverlay: true,
+    overlayPosition: { x: 20, y: 80 }, // Default position
   }
 })
 
@@ -144,11 +145,14 @@ function createDeploymentWindow(deploymentCount = 1) {
     return
   }
 
+  // Load saved position
+  const savedPosition = store.get('overlayPosition')
+
   deploymentWindow = new BrowserWindow({
     width: 340,
     height: height,
-    x: 20,
-    y: 80,
+    x: savedPosition.x,
+    y: savedPosition.y,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -165,6 +169,14 @@ function createDeploymentWindow(deploymentCount = 1) {
 
   deploymentWindow.loadFile(path.join(__dirname, 'deployment-overlay.html'))
   deploymentWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+
+  // Save position when window is moved
+  deploymentWindow.on('move', () => {
+    if (deploymentWindow && !deploymentWindow.isDestroyed()) {
+      const [x, y] = deploymentWindow.getPosition()
+      store.set('overlayPosition', { x, y })
+    }
+  })
 
   deploymentWindow.on('closed', () => {
     deploymentWindow = null
