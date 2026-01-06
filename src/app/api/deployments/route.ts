@@ -1,26 +1,26 @@
 import { NextRequest, NextResponse } from "next/server"
 
-// Dokploy servers configuration
+// Dokploy servers configuration from environment variables
 const DOKPLOY_SERVERS = [
   {
     id: 7,
     name: "Orion",
-    url: "http://57.129.101.188:3000",
-    token: "TCKeNZKoJikPGzKhZOyKXkxzHruGfUQAkEdahaXbvnIMQWvjDscNukRqMAwNfORU",
+    url: process.env.DOKPLOY_ORION_URL || "",
+    token: process.env.DOKPLOY_ORION_TOKEN || "",
   },
   {
     id: 8,
     name: "Andromeda",
-    url: "http://157.90.135.243:3000",
-    token: "CElixReOpXvxPXNLChkoqCgUUZioKgZfPduPEmIifqUcFkmJjPbBqtTWNjCHUMEA",
+    url: process.env.DOKPLOY_ANDROMEDA_URL || "",
+    token: process.env.DOKPLOY_ANDROMEDA_TOKEN || "",
   },
   {
     id: 9,
     name: "Cassiopeia",
-    url: "http://62.210.65.57:3000",
-    token: "tKGYTJfGgZQVuDgZYqoHMmrUtfGIsvpqUYoPUiodYkUHSEjnwyclPOGMJHQNNHAY",
+    url: process.env.DOKPLOY_CASSIOPEIA_URL || "",
+    token: process.env.DOKPLOY_CASSIOPEIA_TOKEN || "",
   },
-]
+].filter(s => s.url && s.token) // Only include servers with valid config
 
 interface Application {
   applicationId: string

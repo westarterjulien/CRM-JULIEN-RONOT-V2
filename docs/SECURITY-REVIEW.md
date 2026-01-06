@@ -7,17 +7,57 @@
 
 ## Résumé Exécutif
 
-| Sévérité | Nombre | Statut |
-|----------|--------|--------|
-| **Critique** | 4 | Action immédiate requise |
-| **Haute** | 6 | À corriger avant production |
-| **Moyenne** | 5 | À corriger avant lancement |
-| **Basse** | 4 | Recommandé |
-| **Info** | 2 | Surveillance recommandée |
+| Sévérité | Nombre | Corrigé | Statut |
+|----------|--------|---------|--------|
+| **Critique** | 5 | 2 | 2 corrigés, 3 à faire |
+| **Haute** | 6 | 1 | 1 corrigé, 5 à faire |
+| **Moyenne** | 5 | 0 | À corriger avant lancement |
+| **Basse** | 4 | 0 | Recommandé |
+| **Info** | 2 | 0 | Surveillance recommandée |
 
 ---
 
 ## Vulnérabilités Critiques
+
+### 0. [CORRIGÉ] 113 endpoints API non protégés
+
+**Localisation:** `/src/app/api/**/*.ts`
+
+**Problème:**
+- 113 routes API sans vérification d'authentification
+- Endpoints sensibles exposés publiquement :
+  - `/api/deployments` - Contrôle des serveurs Dokploy
+  - `/api/admin/*` - Fonctions d'administration
+  - `/api/clients/*` - Données clients
+  - `/api/invoices/*` - Factures
+  - `/api/treasury/*` - Trésorerie
+  - `/api/gocardless/*` - Connexions bancaires
+  - Tokens Dokploy en dur dans le code source
+
+**Impact:** Accès complet aux données et actions sans authentification
+
+**Correction appliquée:**
+```typescript
+// src/middleware.ts - Protection globale des routes API
+export async function middleware(request: NextRequest) {
+  // Routes publiques autorisées
+  const PUBLIC_ROUTES = ["/api/auth", "/api/public", "/api/webhooks", ...]
+
+  // Routes CRON protégées par secret
+  const CRON_ROUTES = ["/api/cron"]
+
+  // Toutes les autres routes requièrent une session
+  const session = await auth()
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+}
+```
+
+**Tokens Dokploy:** Déplacés vers variables d'environnement (.env)
+⚠️ **ACTION REQUISE:** Régénérer les tokens Dokploy car exposés dans l'historique Git
+
+---
 
 ### 1. Secrets exposés dans le fichier .env
 
@@ -502,10 +542,11 @@ function validateIBAN(iban: string): boolean {
 ## Actions Prioritaires
 
 ### Immédiat (Cette semaine)
-1. ✅ Rotation de tous les secrets exposés
-2. ✅ Ajouter validation de signature sur les webhooks
-3. ✅ Protéger l'endpoint admin
-4. ✅ Installer DOMPurify pour XSS
+1. ⬜ Rotation de tous les secrets exposés (tokens Dokploy à régénérer)
+2. ⬜ Ajouter validation de signature sur les webhooks
+3. ✅ **CORRIGÉ** - Protéger les endpoints API (middleware.ts ajouté)
+4. ✅ **CORRIGÉ** - Tokens Dokploy déplacés vers variables d'environnement
+5. ⬜ Installer DOMPurify pour XSS
 
 ### Court terme (2 semaines)
 5. ⬜ Implémenter rate limiting
