@@ -90,7 +90,13 @@ function createMainWindow() {
     show: !store.get('startMinimized'),
     backgroundColor: '#F5F5F7',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    autoHideMenuBar: true,
   })
+
+  // Remove menu bar on Windows (keep on macOS for system integration)
+  if (process.platform !== 'darwin') {
+    mainWindow.setMenu(null)
+  }
 
   // Load CRM
   mainWindow.loadURL(CRM_URL)
