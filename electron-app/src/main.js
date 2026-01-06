@@ -122,16 +122,29 @@ function showDeploymentOverlay(deployments) {
 
   const count = deployments.length
 
+  // Check if window was destroyed
+  if (deploymentWindow && deploymentWindow.isDestroyed()) {
+    deploymentWindow = null
+  }
+
   if (!deploymentWindow) {
     createDeploymentWindow(count)
     deploymentWindow.webContents.once('did-finish-load', () => {
-      deploymentWindow.webContents.send('deployment-update', deployments)
-      deploymentWindow.show()
+      if (deploymentWindow && !deploymentWindow.isDestroyed()) {
+        deploymentWindow.webContents.send('deployment-update', deployments)
+        deploymentWindow.show()
+      }
     })
   } else {
     // Resize window based on deployment count
     createDeploymentWindow(count)
-    deploymentWindow.webContents.send('deployment-update', deployments)
+
+    // Ensure webContents is ready before sending
+    if (deploymentWindow.webContents && !deploymentWindow.webContents.isDestroyed()) {
+      deploymentWindow.webContents.send('deployment-update', deployments)
+    }
+
+    // Always try to show the window
     if (!deploymentWindow.isVisible()) {
       deploymentWindow.show()
     }
@@ -199,10 +212,10 @@ function injectDeploymentPolling() {
         }
       }
 
-      // Poll every 5 seconds
+      // Poll every 3 seconds for faster detection
       pollDeployments();
-      setInterval(pollDeployments, 5000);
-      console.log('[Electron] Deployment polling started');
+      setInterval(pollDeployments, 3000);
+      console.log('[Electron] Deployment polling started (3s interval)');
     })();
   `;
 

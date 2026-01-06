@@ -63,47 +63,44 @@ export async function GET() {
           for (const project of projects) {
             for (const env of project.environments || []) {
               for (const app of env.applications || []) {
-                // Check if application is currently building/deploying
-                if (app.applicationStatus === "running" || app.applicationStatus === "idle") {
-                  // Get recent deployments for this app
-                  try {
-                    const deploymentsRes = await fetch(
-                      `${server.url}/api/trpc/deployment.all?input=${encodeURIComponent(JSON.stringify({ json: { applicationId: app.applicationId } }))}`,
-                      {
-                        method: "GET",
-                        headers: {
-                          "x-api-key": server.token,
-                          "Content-Type": "application/json",
-                        },
-                      }
-                    )
+                // Get recent deployments for ALL apps to catch running ones
+                try {
+                  const deploymentsRes = await fetch(
+                    `${server.url}/api/trpc/deployment.all?input=${encodeURIComponent(JSON.stringify({ json: { applicationId: app.applicationId } }))}`,
+                    {
+                      method: "GET",
+                      headers: {
+                        "x-api-key": server.token,
+                        "Content-Type": "application/json",
+                      },
+                    }
+                  )
 
-                    if (deploymentsRes.ok) {
-                      const deploymentsData = await deploymentsRes.json()
-                      const appDeployments = deploymentsData?.result?.data?.json || []
+                  if (deploymentsRes.ok) {
+                    const deploymentsData = await deploymentsRes.json()
+                    const appDeployments = deploymentsData?.result?.data?.json || []
 
-                      // Find running deployments
-                      for (const dep of appDeployments.slice(0, 3)) {
-                        if (dep.status === "running") {
-                          const startTime = new Date(dep.createdAt).getTime()
-                          const now = Date.now()
-                          const duration = Math.floor((now - startTime) / 1000)
+                    // Find running deployments (check first 5 to catch recent ones)
+                    for (const dep of appDeployments.slice(0, 5)) {
+                      if (dep.status === "running") {
+                        const startTime = new Date(dep.createdAt).getTime()
+                        const now = Date.now()
+                        const duration = Math.floor((now - startTime) / 1000)
 
-                          deployments.push({
-                            id: dep.deploymentId,
-                            appName: app.name,
-                            projectName: project.name,
-                            serverName: server.name,
-                            status: "running",
-                            startedAt: dep.createdAt,
-                            duration,
-                          })
-                        }
+                        deployments.push({
+                          id: dep.deploymentId,
+                          appName: app.name,
+                          projectName: project.name,
+                          serverName: server.name,
+                          status: "running",
+                          startedAt: dep.createdAt,
+                          duration,
+                        })
                       }
                     }
-                  } catch (err) {
-                    // Skip this app if we can't fetch deployments
                   }
+                } catch (err) {
+                  // Skip this app if we can't fetch deployments
                 }
               }
             }
