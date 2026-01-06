@@ -25,6 +25,7 @@ import {
   StickyNote,
   FolderKanban,
   Rocket,
+  Download,
 } from "lucide-react"
 import { signOut, useSession } from "next-auth/react"
 import { useTenant } from "@/contexts/tenant-context"
@@ -425,6 +426,44 @@ export function Sidebar({ isOpen: mobileOpen, onClose }: SidebarProps) {
 
       {/* Bottom section */}
       <div className="px-3 pb-4 pt-3 border-t" style={{ borderColor: theme.border }}>
+        {/* Download App */}
+        <Link
+          href="/download"
+          onMouseEnter={() => setHoveredItem("download")}
+          onMouseLeave={() => setHoveredItem(null)}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all relative mb-1"
+          style={{ background: isActive("/download") ? theme.itemActive : "transparent" }}
+        >
+          <Download
+            className="w-5 h-5 flex-shrink-0"
+            style={{ color: isActive("/download") ? theme.iconActive : theme.accentPrimary }}
+          />
+          {showLabels && (
+            <span
+              className="flex-1 text-[14px] font-medium"
+              style={{ color: isActive("/download") ? theme.textActive : theme.textInactive }}
+            >
+              Application
+            </span>
+          )}
+          {!showLabels && hoveredItem === "download" && (
+            <div
+              className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-2 rounded-lg text-[13px] font-medium whitespace-nowrap z-50 shadow-lg"
+              style={{ background: theme.tooltipBg, color: theme.tooltipText }}
+            >
+              Application Desktop
+              <div
+                className="absolute -left-1.5 top-1/2 -translate-y-1/2"
+                style={{
+                  borderTop: "6px solid transparent",
+                  borderBottom: "6px solid transparent",
+                  borderRight: `6px solid ${theme.tooltipBg}`,
+                }}
+              />
+            </div>
+          )}
+        </Link>
+
         {/* Settings */}
         <Link
           href="/settings"
