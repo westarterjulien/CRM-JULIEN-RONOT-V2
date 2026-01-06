@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import { NoteQuickAdd } from "@/components/notes/NoteQuickAdd"
 import { NoteList } from "@/components/notes/NoteList"
 import { NoteEditModal } from "@/components/notes/NoteEditModal"
+import { NoteDetailModal } from "@/components/notes/NoteDetailModal"
 import {
   Search,
   Zap,
@@ -85,6 +86,7 @@ export default function NotesPage() {
   const [newTagName, setNewTagName] = useState("")
   const [newTagColor, setNewTagColor] = useState("#0064FA")
   const [editingNote, setEditingNote] = useState<Note | null>(null)
+  const [viewingNote, setViewingNote] = useState<Note | null>(null)
 
   const fetchNotes = useCallback(async () => {
     try {
@@ -192,7 +194,12 @@ export default function NotesPage() {
   }
 
   const handleEditNote = (note: Note) => {
+    setViewingNote(null) // Ferme le detail si ouvert
     setEditingNote(note)
+  }
+
+  const handleViewNote = (note: Note) => {
+    setViewingNote(note)
   }
 
   const handleSaveNote = async (
@@ -387,6 +394,7 @@ export default function NotesPage() {
           onDelete={handleDeleteNote}
           onArchive={handleArchiveNote}
           onPin={handlePinNote}
+          onClick={handleViewNote}
           onUpdateContent={handleUpdateContent}
           emptyMessage={
             activeTab === "archived"
@@ -510,6 +518,36 @@ export default function NotesPage() {
           ))}
         </div>
       </div>
+
+      {/* Detail Modal */}
+      {viewingNote && (
+        <NoteDetailModal
+          note={viewingNote}
+          onClose={() => setViewingNote(null)}
+          onEdit={(note) => {
+            setViewingNote(null)
+            handleEditNote(note)
+          }}
+          onDelete={(noteId) => {
+            handleDeleteNote(noteId)
+            setViewingNote(null)
+          }}
+          onArchive={(noteId) => {
+            handleArchiveNote(noteId)
+            setViewingNote(null)
+          }}
+          onPin={(noteId, pinned) => {
+            handlePinNote(noteId, pinned)
+            // Update local state
+            setViewingNote(prev => prev ? { ...prev, isTop: pinned } : null)
+          }}
+          onUpdateContent={(noteId, content) => {
+            handleUpdateContent(noteId, content)
+            // Update local state
+            setViewingNote(prev => prev ? { ...prev, content } : null)
+          }}
+        />
+      )}
 
       {/* Edit Modal */}
       {editingNote && (
