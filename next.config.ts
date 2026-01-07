@@ -57,6 +57,14 @@ const nextConfig: NextConfig = {
   // Use "export" for static Capacitor builds (limited features)
   // Use "standalone" for full-featured server deployment
   output: isCapacitorBuild ? "export" : "standalone",
+
+  // Increase body size limit for file uploads (support downloads .exe/.dmg files)
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "250mb",
+    },
+  },
+
   webpack: (config) => {
     // Fix for react-pdf
     config.resolve.alias.canvas = false;

@@ -4,6 +4,10 @@ import { prisma } from "@/lib/prisma"
 import { getS3Config, uploadToS3 } from "@/lib/s3"
 import { v4 as uuidv4 } from "uuid"
 
+// App Router config
+export const maxDuration = 300 // 5 minutes timeout for large file uploads
+export const dynamic = "force-dynamic"
+
 const DEFAULT_TENANT_ID = BigInt(1)
 const MAX_FILE_SIZE = 200 * 1024 * 1024 // 200MB
 
