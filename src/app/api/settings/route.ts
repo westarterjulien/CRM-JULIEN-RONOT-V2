@@ -129,6 +129,14 @@ export async function GET() {
       revolutClientId: rawSettings.revolutClientId || "",
       revolutApiKey: rawSettings.revolutApiKey || "",
       revolutEnvironment: rawSettings.revolutEnvironment || "sandbox",
+
+      // S3 Storage (for support downloads)
+      s3Endpoint: rawSettings.s3Endpoint || "",
+      s3Region: rawSettings.s3Region || "fr-par",
+      s3AccessKey: rawSettings.s3AccessKey || "",
+      s3SecretKey: rawSettings.s3SecretKey || "",
+      s3Bucket: rawSettings.s3Bucket || "",
+      s3ForcePathStyle: rawSettings.s3ForcePathStyle ?? true,
     }
 
     return NextResponse.json({
@@ -425,6 +433,14 @@ export async function PUT(request: NextRequest) {
       if (body.revolutClientId !== undefined) updatedSettings.revolutClientId = body.revolutClientId
       if (body.revolutApiKey !== undefined) updatedSettings.revolutApiKey = body.revolutApiKey
       if (body.revolutEnvironment !== undefined) updatedSettings.revolutEnvironment = body.revolutEnvironment
+
+      // S3 Storage settings
+      if (body.s3Endpoint !== undefined) updatedSettings.s3Endpoint = body.s3Endpoint
+      if (body.s3Region !== undefined) updatedSettings.s3Region = body.s3Region
+      if (body.s3AccessKey !== undefined) updatedSettings.s3AccessKey = body.s3AccessKey
+      if (body.s3SecretKey !== undefined) updatedSettings.s3SecretKey = body.s3SecretKey
+      if (body.s3Bucket !== undefined) updatedSettings.s3Bucket = body.s3Bucket
+      if (body.s3ForcePathStyle !== undefined) updatedSettings.s3ForcePathStyle = body.s3ForcePathStyle
 
       await prisma.tenants.update({
         where: { id: BigInt(1) },
