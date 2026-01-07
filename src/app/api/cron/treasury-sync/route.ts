@@ -2,8 +2,9 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { GocardlessClient } from "@/lib/gocardless"
 
-// Vercel Cron Job - runs at 8:00 AM and 2:00 PM Paris time (7:00 and 13:00 UTC)
-// Add to vercel.json: { "path": "/api/cron/treasury-sync", "schedule": "0 7,13 * * *" }
+// Cron Job - runs at 8:00 AM and 2:00 PM Paris time
+// Dokploy cron (UTC): 0 7,13 * * * (winter) or 0 6,12 * * * (summer)
+// Container is now in Europe/Paris timezone
 
 const DEFAULT_TENANT_ID = BigInt(1)
 

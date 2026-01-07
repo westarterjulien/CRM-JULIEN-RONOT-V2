@@ -45,6 +45,12 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Set timezone to Europe/Paris
+ENV TZ=Europe/Paris
+RUN apk add --no-cache tzdata && \
+    cp /usr/share/zoneinfo/Europe/Paris /etc/localtime && \
+    echo "Europe/Paris" > /etc/timezone
+
 # Install curl, bash and openssl for cron jobs and prisma
 RUN apk add --no-cache curl bash openssl
 
