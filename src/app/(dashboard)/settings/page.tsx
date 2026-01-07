@@ -350,6 +350,14 @@ function SettingsContent() {
   const [cronSecret, setCronSecret] = useState("")
   const [showCronSecret, setShowCronSecret] = useState(false)
 
+  // S3 Storage (for Remote Support)
+  const [s3Endpoint, setS3Endpoint] = useState("")
+  const [s3Region, setS3Region] = useState("fr-par")
+  const [s3AccessKey, setS3AccessKey] = useState("")
+  const [s3SecretKey, setS3SecretKey] = useState("")
+  const [s3Bucket, setS3Bucket] = useState("")
+  const [s3ForcePathStyle, setS3ForcePathStyle] = useState(true)
+
   const [showIntegrationSecrets, setShowIntegrationSecrets] = useState(false)
   const [integrationTestResult, setIntegrationTestResult] = useState<{ type: "success" | "error"; message: string } | null>(null)
   const [activeIntegrationTab, setActiveIntegrationTab] = useState("slack")
@@ -479,6 +487,14 @@ function SettingsContent() {
 
         // Cron Secret
         setCronSecret(data.settings?.cronSecret || "")
+
+        // S3 Storage
+        setS3Endpoint(data.settings?.s3Endpoint || "")
+        setS3Region(data.settings?.s3Region || "fr-par")
+        setS3AccessKey(data.settings?.s3AccessKey || "")
+        setS3SecretKey(data.settings?.s3SecretKey || "")
+        setS3Bucket(data.settings?.s3Bucket || "")
+        setS3ForcePathStyle(data.settings?.s3ForcePathStyle ?? true)
       }
     } catch (error) {
       console.error("Error fetching settings:", error)
@@ -3549,27 +3565,28 @@ function SettingsContent() {
       {activeTab === "remote-support" && (
         <RemoteSupportSettings
           settings={{
-            s3Endpoint: settings?.settings?.s3Endpoint || "",
-            s3Region: settings?.settings?.s3Region || "fr-par",
-            s3AccessKey: settings?.settings?.s3AccessKey || "",
-            s3SecretKey: settings?.settings?.s3SecretKey || "",
-            s3Bucket: settings?.settings?.s3Bucket || "",
-            s3ForcePathStyle: settings?.settings?.s3ForcePathStyle ?? true,
+            s3Endpoint,
+            s3Region,
+            s3AccessKey,
+            s3SecretKey,
+            s3Bucket,
+            s3ForcePathStyle,
           }}
           onSave={async (s3Config) => {
-            const newSettings = {
-              ...settings?.settings,
-              ...s3Config,
-            }
             // Save to API
             const response = await fetch("/api/settings", {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ settings: newSettings }),
+              body: JSON.stringify({ settings: s3Config }),
             })
             if (response.ok) {
-              // Refresh settings
-              fetchSettings()
+              // Update local state
+              setS3Endpoint(s3Config.s3Endpoint)
+              setS3Region(s3Config.s3Region)
+              setS3AccessKey(s3Config.s3AccessKey)
+              setS3SecretKey(s3Config.s3SecretKey)
+              setS3Bucket(s3Config.s3Bucket)
+              setS3ForcePathStyle(s3Config.s3ForcePathStyle)
             }
           }}
         />
