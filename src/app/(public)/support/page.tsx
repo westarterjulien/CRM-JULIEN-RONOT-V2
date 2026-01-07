@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Monitor, Apple, Download, Shield, Headphones, ArrowRight, Loader2 } from "lucide-react"
+import { Monitor, Apple, Download, Shield, Headphones, Loader2, CheckCircle } from "lucide-react"
 import Image from "next/image"
 
 interface DownloadFile {
@@ -51,7 +51,6 @@ export default function SupportDownloadPage() {
       const response = await fetch(`/api/public/support-downloads/${file.id}`)
       if (response.ok) {
         const data = await response.json()
-        // Redirect to presigned URL
         window.location.href = data.url
       }
     } catch (error) {
@@ -72,182 +71,233 @@ export default function SupportDownloadPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent"></div>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "#F5F5F7" }}>
+        <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#0064FA" }} />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      {/* Background decorations */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl" />
-      </div>
-
-      <div className="relative z-10 container mx-auto px-4 py-12 max-w-4xl">
+    <div className="min-h-screen" style={{ background: "#F5F5F7" }}>
+      <div className="container mx-auto px-4 py-12 max-w-3xl">
         {/* Header */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-10">
           {tenant?.logo ? (
             <div className="flex justify-center mb-6">
-              <Image
-                src={tenant.logo}
-                alt={tenant.name}
-                width={180}
-                height={60}
-                className="h-14 w-auto object-contain"
-              />
+              {tenant.logo.startsWith("data:") ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={tenant.logo}
+                  alt={tenant.name}
+                  className="h-16 w-auto object-contain"
+                />
+              ) : (
+                <Image
+                  src={`/uploads/${tenant.logo}`}
+                  alt={tenant.name}
+                  width={180}
+                  height={64}
+                  className="h-16 w-auto object-contain"
+                />
+              )}
             </div>
           ) : (
             <div className="flex justify-center mb-6">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center">
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                style={{ background: "#0064FA", boxShadow: "0 4px 12px rgba(0, 100, 250, 0.3)" }}
+              >
                 <Headphones className="w-8 h-8 text-white" />
               </div>
             </div>
           )}
 
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+          <h1 className="text-3xl font-bold mb-3" style={{ color: "#111111" }}>
             Assistance à distance
           </h1>
-          <p className="text-xl text-slate-300 max-w-2xl mx-auto">
-            Téléchargez notre logiciel de prise en main à distance pour permettre à notre équipe de vous assister directement sur votre ordinateur.
+          <p className="text-base max-w-xl mx-auto" style={{ color: "#666666" }}>
+            Téléchargez notre logiciel pour permettre à notre équipe de vous assister directement sur votre ordinateur.
           </p>
         </div>
 
         {/* Download Cards */}
-        <div className="grid md:grid-cols-2 gap-6 mb-12">
+        <div className="grid md:grid-cols-2 gap-5 mb-8">
           {/* Windows Card */}
-          <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/10 hover:border-white/20 transition-all">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center">
-                <Monitor className="w-7 h-7 text-white" />
+          <div
+            className="rounded-2xl p-6"
+            style={{
+              background: "#FFFFFF",
+              boxShadow: "0 4px 24px rgba(0, 0, 0, 0.06)",
+            }}
+          >
+            <div className="flex items-center gap-4 mb-5">
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center"
+                style={{ background: "#0064FA" }}
+              >
+                <Monitor className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-white">Windows</h2>
-                <p className="text-slate-400">Windows 10/11</p>
+                <h2 className="text-lg font-semibold" style={{ color: "#111111" }}>Windows</h2>
+                <p className="text-sm" style={{ color: "#999999" }}>Windows 10 / 11</p>
               </div>
             </div>
 
             {windowsFile ? (
               <>
-                <div className="space-y-2 mb-6 text-sm text-slate-400">
-                  <p>Version: {windowsFile.version || "Dernière"}</p>
-                  <p>Taille: {formatFileSize(windowsFile.fileSize)}</p>
-                  <p>{windowsFile.downloadCount.toLocaleString()} téléchargements</p>
+                <div className="space-y-1.5 mb-5 text-sm" style={{ color: "#666666" }}>
+                  <p>Version : {windowsFile.version || "Dernière"}</p>
+                  <p>Taille : {formatFileSize(windowsFile.fileSize)}</p>
                 </div>
                 <button
                   onClick={() => handleDownload(windowsFile)}
                   disabled={downloading === windowsFile.id}
-                  className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-semibold flex items-center justify-center gap-3 hover:shadow-lg hover:shadow-blue-500/30 transition-all disabled:opacity-50"
+                  className="w-full py-3 px-5 rounded-xl font-semibold text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-50"
+                  style={{
+                    background: "#0064FA",
+                    boxShadow: "0 4px 12px rgba(0, 100, 250, 0.25)",
+                  }}
                 >
                   {downloading === windowsFile.id ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <Download className="w-5 h-5" />
                   )}
-                  Télécharger pour Windows
+                  Télécharger
                 </button>
               </>
             ) : (
-              <div className="text-center py-8 text-slate-400">
-                <Monitor className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p>Bientôt disponible</p>
+              <div className="text-center py-6" style={{ color: "#AEAEAE" }}>
+                <Monitor className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">Bientôt disponible</p>
               </div>
             )}
           </div>
 
           {/* Mac Card */}
-          <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/10 hover:border-white/20 transition-all">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center">
-                <Apple className="w-7 h-7 text-white" />
+          <div
+            className="rounded-2xl p-6"
+            style={{
+              background: "#FFFFFF",
+              boxShadow: "0 4px 24px rgba(0, 0, 0, 0.06)",
+            }}
+          >
+            <div className="flex items-center gap-4 mb-5">
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center"
+                style={{ background: "#111111" }}
+              >
+                <Apple className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-white">macOS</h2>
-                <p className="text-slate-400">macOS 11+</p>
+                <h2 className="text-lg font-semibold" style={{ color: "#111111" }}>macOS</h2>
+                <p className="text-sm" style={{ color: "#999999" }}>macOS 11+</p>
               </div>
             </div>
 
             {macFile ? (
               <>
-                <div className="space-y-2 mb-6 text-sm text-slate-400">
-                  <p>Version: {macFile.version || "Dernière"}</p>
-                  <p>Taille: {formatFileSize(macFile.fileSize)}</p>
-                  <p>{macFile.downloadCount.toLocaleString()} téléchargements</p>
+                <div className="space-y-1.5 mb-5 text-sm" style={{ color: "#666666" }}>
+                  <p>Version : {macFile.version || "Dernière"}</p>
+                  <p>Taille : {formatFileSize(macFile.fileSize)}</p>
                 </div>
                 <button
                   onClick={() => handleDownload(macFile)}
                   disabled={downloading === macFile.id}
-                  className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-slate-600 to-slate-700 text-white font-semibold flex items-center justify-center gap-3 hover:shadow-lg hover:shadow-slate-500/30 transition-all disabled:opacity-50"
+                  className="w-full py-3 px-5 rounded-xl font-semibold text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-50"
+                  style={{
+                    background: "#111111",
+                  }}
                 >
                   {downloading === macFile.id ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <Download className="w-5 h-5" />
                   )}
-                  Télécharger pour Mac
+                  Télécharger
                 </button>
               </>
             ) : (
-              <div className="text-center py-8 text-slate-400">
-                <Apple className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p>Bientôt disponible</p>
+              <div className="text-center py-6" style={{ color: "#AEAEAE" }}>
+                <Apple className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">Bientôt disponible</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Instructions */}
-        <div className="bg-white/5 backdrop-blur-xl rounded-3xl p-8 border border-white/10 mb-12">
-          <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
-            <ArrowRight className="w-5 h-5 text-purple-400" />
+        {/* Instructions Card */}
+        <div
+          className="rounded-2xl p-6 mb-6"
+          style={{
+            background: "#FFFFFF",
+            boxShadow: "0 4px 24px rgba(0, 0, 0, 0.06)",
+          }}
+        >
+          <h3 className="text-base font-semibold mb-5" style={{ color: "#111111" }}>
             Comment utiliser ?
           </h3>
-          <ol className="space-y-4 text-slate-300">
-            <li className="flex gap-4">
-              <span className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold">1</span>
-              <p>Téléchargez le logiciel correspondant à votre système d&apos;exploitation</p>
-            </li>
-            <li className="flex gap-4">
-              <span className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold">2</span>
-              <p>Lancez le fichier téléchargé (pas d&apos;installation requise)</p>
-            </li>
-            <li className="flex gap-4">
-              <span className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold">3</span>
-              <p>Communiquez votre <strong>ID</strong> et <strong>Mot de passe</strong> à notre technicien</p>
-            </li>
-            <li className="flex gap-4">
-              <span className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold">4</span>
-              <p>Notre équipe prendra le contrôle de votre écran pour vous aider</p>
-            </li>
+          <ol className="space-y-4">
+            {[
+              "Téléchargez le logiciel correspondant à votre système",
+              "Lancez le fichier (pas d'installation requise)",
+              "Communiquez votre ID et mot de passe au technicien",
+              "Notre équipe prendra le contrôle pour vous aider",
+            ].map((step, index) => (
+              <li key={index} className="flex items-start gap-3">
+                <span
+                  className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold"
+                  style={{ background: "#E8F0FE", color: "#0064FA" }}
+                >
+                  {index + 1}
+                </span>
+                <p className="text-sm pt-0.5" style={{ color: "#444444" }}>{step}</p>
+              </li>
+            ))}
           </ol>
         </div>
 
         {/* Security Notice */}
-        <div className="flex items-start gap-4 bg-green-500/10 backdrop-blur-xl rounded-2xl p-6 border border-green-500/20">
-          <Shield className="w-6 h-6 text-green-400 flex-shrink-0 mt-0.5" />
+        <div
+          className="flex items-start gap-4 rounded-xl p-5"
+          style={{ background: "#E8F5E9" }}
+        >
+          <div
+            className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
+            style={{ background: "#28B95F" }}
+          >
+            <Shield className="w-4 h-4 text-white" />
+          </div>
           <div>
-            <h4 className="font-semibold text-green-400 mb-1">Connexion sécurisée</h4>
-            <p className="text-slate-400 text-sm">
-              La connexion est entièrement chiffrée et vous gardez le contrôle à tout moment.
-              Vous pouvez arrêter la session en fermant simplement le logiciel.
+            <h4 className="font-semibold text-sm mb-1" style={{ color: "#28B95F" }}>
+              Connexion sécurisée
+            </h4>
+            <p className="text-sm" style={{ color: "#666666" }}>
+              Connexion chiffrée. Vous gardez le contrôle et pouvez arrêter à tout moment.
             </p>
           </div>
         </div>
 
         {/* Contact */}
         {(tenant?.supportPhone || tenant?.supportEmail) && (
-          <div className="text-center mt-12 text-slate-400">
-            <p>Besoin d&apos;aide ? Contactez-nous</p>
-            <div className="flex items-center justify-center gap-6 mt-2">
+          <div className="text-center mt-10" style={{ color: "#666666" }}>
+            <p className="text-sm">Besoin d&apos;aide ?</p>
+            <div className="flex items-center justify-center gap-4 mt-2">
               {tenant.supportPhone && (
-                <a href={`tel:${tenant.supportPhone}`} className="text-white hover:text-purple-400 transition-colors">
+                <a
+                  href={`tel:${tenant.supportPhone}`}
+                  className="text-sm font-medium hover:opacity-80 transition-opacity"
+                  style={{ color: "#0064FA" }}
+                >
                   {tenant.supportPhone}
                 </a>
               )}
               {tenant.supportEmail && (
-                <a href={`mailto:${tenant.supportEmail}`} className="text-white hover:text-purple-400 transition-colors">
+                <a
+                  href={`mailto:${tenant.supportEmail}`}
+                  className="text-sm font-medium hover:opacity-80 transition-opacity"
+                  style={{ color: "#0064FA" }}
+                >
                   {tenant.supportEmail}
                 </a>
               )}
@@ -256,7 +306,7 @@ export default function SupportDownloadPage() {
         )}
 
         {/* Footer */}
-        <footer className="text-center mt-16 text-slate-500 text-sm">
+        <footer className="text-center mt-12 text-xs" style={{ color: "#AEAEAE" }}>
           <p>&copy; {new Date().getFullYear()} {tenant?.name || "Support"}. Tous droits réservés.</p>
         </footer>
       </div>
