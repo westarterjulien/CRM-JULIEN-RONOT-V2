@@ -162,24 +162,62 @@ export function RemoteSupportSettings({ settings, onSave }: RemoteSupportSetting
   const handleUpload = async (platform: "windows" | "macos", file: File) => {
     setUploading(platform)
     try {
-      const formData = new FormData()
-      formData.append("file", file)
-      formData.append("platform", platform)
-      if (uploadVersion) {
-        formData.append("version", uploadVersion)
-      }
-
-      const response = await fetch("/api/settings/support-downloads", {
+      // Step 1: Get presigned URL from our API
+      const urlResponse = await fetch("/api/settings/support-downloads", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "get-upload-url",
+          fileName: file.name,
+          fileSize: file.size,
+          contentType: file.type || "application/octet-stream",
+          platform,
+        }),
       })
 
-      if (response.ok) {
+      if (!urlResponse.ok) {
+        const data = await urlResponse.json()
+        alert(data.error || "Erreur lors de la préparation de l'upload")
+        return
+      }
+
+      const { uploadUrl, s3Key, fileName } = await urlResponse.json()
+
+      // Step 2: Upload directly to S3
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: {
+          "Content-Type": file.type || "application/octet-stream",
+        },
+      })
+
+      if (!uploadResponse.ok) {
+        alert("Erreur lors de l'upload vers S3")
+        return
+      }
+
+      // Step 3: Confirm upload in our API
+      const confirmResponse = await fetch("/api/settings/support-downloads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "confirm-upload",
+          s3Key,
+          fileName,
+          originalName: file.name,
+          fileSize: file.size,
+          platform,
+          version: uploadVersion || null,
+        }),
+      })
+
+      if (confirmResponse.ok) {
         setUploadVersion("")
         fetchDownloads()
       } else {
-        const data = await response.json()
-        alert(data.error || "Erreur lors de l'upload")
+        const data = await confirmResponse.json()
+        alert(data.error || "Erreur lors de la confirmation")
       }
     } catch (error) {
       console.error("Error uploading:", error)

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { getS3Config, uploadToS3 } from "@/lib/s3"
+import { getS3Config, getPresignedUploadUrl } from "@/lib/s3"
 import { v4 as uuidv4 } from "uuid"
 
 // App Router config
@@ -54,7 +54,7 @@ export async function GET() {
   }
 }
 
-// POST /api/settings/support-downloads - Upload new file
+// POST /api/settings/support-downloads - Get presigned URL or confirm upload
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
@@ -62,7 +62,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
     }
 
-    console.log("[Upload] User:", session.user.email, "ID:", session.user.id)
+    const body = await request.json()
+    const { action } = body
 
     // Get S3 config
     const s3Config = await getS3Config()
@@ -73,126 +74,113 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log("[Upload] S3 Config found, bucket:", s3Config.bucket)
+    // Step 1: Get presigned URL for upload
+    if (action === "get-upload-url") {
+      const { fileName, fileSize, contentType, platform } = body
 
-    const formData = await request.formData()
-    const file = formData.get("file") as File | null
-    const platform = formData.get("platform") as string
-    const version = formData.get("version") as string | null
+      if (!fileName || !fileSize || !platform) {
+        return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 })
+      }
 
-    if (!file) {
-      return NextResponse.json({ error: "Fichier requis" }, { status: 400 })
-    }
+      if (!["windows", "macos"].includes(platform)) {
+        return NextResponse.json(
+          { error: "Plateforme invalide (windows ou macos)" },
+          { status: 400 }
+        )
+      }
 
-    if (!platform || !["windows", "macos"].includes(platform)) {
-      return NextResponse.json(
-        { error: "Plateforme invalide (windows ou macos)" },
-        { status: 400 }
-      )
-    }
+      // Validate file size
+      if (fileSize > MAX_FILE_SIZE) {
+        return NextResponse.json(
+          { error: `Fichier trop volumineux (max ${MAX_FILE_SIZE / 1024 / 1024}MB)` },
+          { status: 400 }
+        )
+      }
 
-    // Validate file size
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: `Fichier trop volumineux (max ${MAX_FILE_SIZE / 1024 / 1024}MB)` },
-        { status: 400 }
-      )
-    }
+      // Validate file extension
+      const ext = fileName.toLowerCase().split(".").pop()
+      const allowedExtensions = ["exe", "dmg", "pkg", "zip"]
 
-    // Validate file type
-    const allowedTypes = [
-      "application/x-msdownload", // .exe
-      "application/x-msdos-program",
-      "application/octet-stream",
-      "application/x-apple-diskimage", // .dmg
-      "application/vnd.apple.installer+xml", // .pkg
-    ]
+      if (!allowedExtensions.includes(ext || "")) {
+        return NextResponse.json(
+          { error: "Type de fichier non autorisé (.exe, .dmg, .pkg, .zip uniquement)" },
+          { status: 400 }
+        )
+      }
 
-    const ext = file.name.toLowerCase().split(".").pop()
-    const allowedExtensions = ["exe", "dmg", "pkg", "zip"]
+      // Generate unique filename
+      const uniqueId = uuidv4()
+      const safeFileName = `${uniqueId}-${fileName.replace(/[^a-zA-Z0-9.-]/g, "_")}`
+      const s3Key = `support-downloads/${platform}/${safeFileName}`
 
-    if (!allowedExtensions.includes(ext || "")) {
-      return NextResponse.json(
-        { error: "Type de fichier non autorisé (.exe, .dmg, .pkg, .zip uniquement)" },
-        { status: 400 }
-      )
-    }
-
-    // Generate unique filename
-    const uniqueId = uuidv4()
-    const fileName = `${uniqueId}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`
-    const s3Key = `support-downloads/${platform}/${fileName}`
-
-    // Upload to S3
-    console.log("[Upload] Uploading file:", file.name, "size:", file.size, "to key:", s3Key)
-    const buffer = Buffer.from(await file.arrayBuffer())
-    const uploadResult = await uploadToS3(
-      buffer,
-      s3Key,
-      file.type || "application/octet-stream",
-      s3Config
-    )
-
-    if (!uploadResult.success) {
-      console.error("[Upload] S3 upload failed:", uploadResult.error)
-      return NextResponse.json(
-        { error: `Erreur upload S3: ${uploadResult.error}` },
-        { status: 500 }
-      )
-    }
-
-    console.log("[Upload] S3 upload successful, creating DB record...")
-
-    // Deactivate existing file for this platform
-    await prisma.supportDownload.updateMany({
-      where: {
-        tenant_id: DEFAULT_TENANT_ID,
-        platform,
-        isActive: true,
-      },
-      data: { isActive: false },
-    })
-
-    // Create database record
-    const download = await prisma.supportDownload.create({
-      data: {
-        tenant_id: DEFAULT_TENANT_ID,
-        platform,
-        fileName,
-        originalName: file.name,
-        fileSize: BigInt(file.size),
-        mimeType: file.type || "application/octet-stream",
+      // Get presigned URL
+      const uploadUrl = await getPresignedUploadUrl(
         s3Key,
-        s3Bucket: s3Config.bucket,
-        version: version || null,
-        isActive: true,
-        uploadedBy: BigInt(session.user.id),
-      },
-    })
+        contentType || "application/octet-stream",
+        s3Config,
+        3600 // 1 hour expiry
+      )
 
-    return NextResponse.json({
-      id: download.id.toString(),
-      platform: download.platform,
-      fileName: download.fileName,
-      originalName: download.originalName,
-      fileSize: Number(download.fileSize),
-      version: download.version,
-      message: "Fichier uploadé avec succès",
-    })
+      return NextResponse.json({
+        uploadUrl,
+        s3Key,
+        fileName: safeFileName,
+      })
+    }
+
+    // Step 2: Confirm upload and create DB record
+    if (action === "confirm-upload") {
+      const { s3Key, fileName, originalName, fileSize, platform, version } = body
+
+      if (!s3Key || !fileName || !originalName || !fileSize || !platform) {
+        return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 })
+      }
+
+      // Deactivate existing file for this platform
+      await prisma.supportDownload.updateMany({
+        where: {
+          tenant_id: DEFAULT_TENANT_ID,
+          platform,
+          isActive: true,
+        },
+        data: { isActive: false },
+      })
+
+      // Create database record
+      const download = await prisma.supportDownload.create({
+        data: {
+          tenant_id: DEFAULT_TENANT_ID,
+          platform,
+          fileName,
+          originalName,
+          fileSize: BigInt(fileSize),
+          mimeType: "application/octet-stream",
+          s3Key,
+          s3Bucket: s3Config.bucket,
+          version: version || null,
+          isActive: true,
+          uploadedBy: BigInt(session.user.id),
+        },
+      })
+
+      return NextResponse.json({
+        id: download.id.toString(),
+        platform: download.platform,
+        fileName: download.fileName,
+        originalName: download.originalName,
+        fileSize: Number(download.fileSize),
+        version: download.version,
+        message: "Fichier uploadé avec succès",
+      })
+    }
+
+    return NextResponse.json({ error: "Action invalide" }, { status: 400 })
   } catch (error) {
-    console.error("Error uploading support download:", error)
+    console.error("Error in support downloads:", error)
     const errorMessage = error instanceof Error ? error.message : "Erreur inconnue"
 
-    // Check for specific errors
-    if (errorMessage.includes("support_downloads") || errorMessage.includes("SupportDownload")) {
-      return NextResponse.json(
-        { error: "Table support_downloads non trouvée. Exécutez 'npx prisma db push' pour créer la table." },
-        { status: 500 }
-      )
-    }
-
     return NextResponse.json(
-      { error: `Erreur lors de l'upload: ${errorMessage}` },
+      { error: `Erreur: ${errorMessage}` },
       { status: 500 }
     )
   }

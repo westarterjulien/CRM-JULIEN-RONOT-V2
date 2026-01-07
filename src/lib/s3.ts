@@ -94,6 +94,24 @@ export async function getPresignedDownloadUrl(
   return getSignedUrl(client, command, { expiresIn })
 }
 
+// Get presigned upload URL for direct browser upload
+export async function getPresignedUploadUrl(
+  key: string,
+  contentType: string,
+  config: S3Config,
+  expiresIn: number = 3600 // 1 hour
+): Promise<string> {
+  const client = createS3Client(config)
+
+  const command = new PutObjectCommand({
+    Bucket: config.bucket,
+    Key: key,
+    ContentType: contentType,
+  })
+
+  return getSignedUrl(client, command, { expiresIn })
+}
+
 // Delete file from S3
 export async function deleteFromS3(
   key: string,
