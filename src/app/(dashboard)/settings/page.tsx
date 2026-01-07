@@ -901,20 +901,43 @@ function SettingsContent() {
     }
   }
 
-  const tabs = [
-    { id: "company", label: "Entreprise", icon: Building2, color: "#0064FA" },
-    { id: "appearance", label: "Apparence", icon: ImagePlus, color: "#5F00BA" },
-    { id: "goals", label: "Objectifs", icon: Target, color: "#28B95F" },
-    { id: "email", label: "Email", icon: Mail, color: "#5F00BA" },
-    { id: "payment", label: "Paiement", icon: CreditCard, color: "#28B95F" },
-    { id: "invoice", label: "Facturation", icon: FileText, color: "#F0783C" },
-    { id: "dns", label: "DNS", icon: Globe, color: "#14B4E6" },
-    { id: "notifications", label: "Notifications", icon: Bell, color: "#F04B69" },
-    { id: "integrations", label: "Intégrations", icon: Puzzle, color: "#28B95F" },
-    { id: "automations", label: "Automatisations", icon: Clock, color: "#DCB40A" },
-    { id: "calendar", label: "Mon Calendrier", icon: Calendar, color: "#14B4E6" },
-    { id: "api", label: "API", icon: Key, color: "#F04B69" },
+  const tabGroups = [
+    {
+      label: "Général",
+      tabs: [
+        { id: "company", label: "Entreprise", icon: Building2, color: "#0064FA" },
+        { id: "appearance", label: "Apparence", icon: ImagePlus, color: "#5F00BA" },
+        { id: "goals", label: "Objectifs", icon: Target, color: "#28B95F" },
+      ],
+    },
+    {
+      label: "Documents",
+      tabs: [
+        { id: "email", label: "Email", icon: Mail, color: "#5F00BA" },
+        { id: "invoice", label: "Facturation", icon: FileText, color: "#F0783C" },
+        { id: "payment", label: "Paiement", icon: CreditCard, color: "#28B95F" },
+      ],
+    },
+    {
+      label: "Connecteurs",
+      tabs: [
+        { id: "integrations", label: "Intégrations", icon: Puzzle, color: "#28B95F" },
+        { id: "dns", label: "DNS", icon: Globe, color: "#14B4E6" },
+        { id: "api", label: "API Externe", icon: Key, color: "#F04B69" },
+      ],
+    },
+    {
+      label: "Personnel",
+      tabs: [
+        { id: "calendar", label: "Calendrier", icon: Calendar, color: "#14B4E6" },
+        { id: "notifications", label: "Notifications", icon: Bell, color: "#F04B69" },
+        { id: "automations", label: "Automatisations", icon: Clock, color: "#DCB40A" },
+      ],
+    },
   ]
+
+  // Flat tabs for backward compatibility
+  const tabs = tabGroups.flatMap((g) => g.tabs)
 
   const inputStyle = {
     background: "#F5F5F7",
@@ -961,29 +984,47 @@ function SettingsContent() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs - Grouped Layout */}
       <div
-        className="rounded-2xl p-2 flex flex-wrap gap-1"
+        className="rounded-2xl p-4"
         style={{ background: "#FFFFFF", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}
       >
-        {tabs.map((tab) => {
-          const Icon = tab.icon
-          const isActive = activeTab === tab.id
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
-              style={{
-                background: isActive ? tab.color : "transparent",
-                color: isActive ? "#FFFFFF" : "#666666",
-              }}
-            >
-              <Icon className="h-4 w-4" />
-              <span className="hidden sm:inline">{tab.label}</span>
-            </button>
-          )
-        })}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {tabGroups.map((group) => (
+            <div key={group.label} className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider px-2" style={{ color: "#999999" }}>
+                {group.label}
+              </h3>
+              <div className="space-y-1">
+                {group.tabs.map((tab) => {
+                  const Icon = tab.icon
+                  const isActive = activeTab === tab.id
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all text-left"
+                      style={{
+                        background: isActive ? tab.color : "transparent",
+                        color: isActive ? "#FFFFFF" : "#666666",
+                      }}
+                    >
+                      <div
+                        className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                        style={{
+                          background: isActive ? "rgba(255,255,255,0.2)" : `${tab.color}15`,
+                        }}
+                      >
+                        <Icon className="h-4 w-4" style={{ color: isActive ? "#FFFFFF" : tab.color }} />
+                      </div>
+                      <span>{tab.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Company Tab */}
