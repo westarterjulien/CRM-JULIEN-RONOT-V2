@@ -37,11 +37,12 @@ export async function GET(
       )
     }
 
-    // Generate presigned URL
+    // Generate presigned URL with original filename for download
     const presignedUrl = await getPresignedDownloadUrl(
       download.s3Key,
       s3Config,
-      3600 // 1 hour expiry
+      3600, // 1 hour expiry
+      download.originalName // Force download with original filename
     )
 
     // Increment download counter

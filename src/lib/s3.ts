@@ -82,13 +82,18 @@ export async function uploadToS3(
 export async function getPresignedDownloadUrl(
   key: string,
   config: S3Config,
-  expiresIn: number = 3600 // 1 hour
+  expiresIn: number = 3600, // 1 hour
+  downloadFileName?: string // Force download with this filename
 ): Promise<string> {
   const client = createS3Client(config)
 
   const command = new GetObjectCommand({
     Bucket: config.bucket,
     Key: key,
+    // Force browser to download with original filename
+    ...(downloadFileName && {
+      ResponseContentDisposition: `attachment; filename="${downloadFileName}"`,
+    }),
   })
 
   return getSignedUrl(client, command, { expiresIn })

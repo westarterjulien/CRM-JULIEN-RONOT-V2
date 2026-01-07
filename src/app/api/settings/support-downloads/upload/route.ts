@@ -59,10 +59,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate unique filename
+    // Keep original filename, use UUID in S3 path to avoid conflicts
     const uniqueId = uuidv4()
-    const safeFileName = `${uniqueId}-${fileName.replace(/[^a-zA-Z0-9.-]/g, "_")}`
-    const s3Key = `support-downloads/${platform}/${safeFileName}`
+    const s3Key = `support-downloads/${platform}/${uniqueId}/${fileName}`
 
     // Get the body as array buffer and upload to S3
     const body = await request.arrayBuffer()
@@ -97,7 +96,7 @@ export async function POST(request: NextRequest) {
       data: {
         tenant_id: DEFAULT_TENANT_ID,
         platform,
-        fileName: safeFileName,
+        fileName: fileName,
         originalName: fileName,
         fileSize: BigInt(buffer.length),
         mimeType: contentType,
