@@ -3580,11 +3580,14 @@ function SettingsContent() {
             s3ForcePathStyle,
           }}
           onSave={async (s3Config) => {
-            // Save to API
+            // Save to API using integrations section
             const response = await fetch("/api/settings", {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ settings: s3Config }),
+              body: JSON.stringify({
+                section: "integrations",
+                ...s3Config,
+              }),
             })
             if (response.ok) {
               // Update local state
