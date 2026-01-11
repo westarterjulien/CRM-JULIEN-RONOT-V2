@@ -348,6 +348,15 @@ export async function PUT(
     }
 
     // Regular update
+    // Protection: ne pas permettre de rétrograder certains statuts
+    const protectedStatuses = ["exported_sepa", "paid"]
+    if (protectedStatuses.includes(existingInvoice.status || "") && body.status === "draft") {
+      return NextResponse.json(
+        { error: "Impossible de repasser une facture exportée ou payée en brouillon" },
+        { status: 400 }
+      )
+    }
+
     let subtotalHt = 0
     let taxAmount = 0
 
