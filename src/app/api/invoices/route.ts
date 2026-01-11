@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   const search = searchParams.get("search") || ""
   const status = searchParams.get("status") || ""
   const clientId = searchParams.get("clientId") || ""
-  const sortBy = searchParams.get("sortBy") || "createdAt"
+  const sortBy = searchParams.get("sortBy") || "issueDate"
   const sortOrder = searchParams.get("sortOrder") || "desc"
   const dateFrom = searchParams.get("dateFrom") || ""
   const dateTo = searchParams.get("dateTo") || ""
