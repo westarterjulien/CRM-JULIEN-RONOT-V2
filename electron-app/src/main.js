@@ -314,17 +314,9 @@ function createNotesWidget() {
     },
   })
 
-  notesWidgetWindow.loadFile(path.join(__dirname, 'notes-widget.html'))
+  // Load the widget page from CRM (shares session cookies)
+  notesWidgetWindow.loadURL(`${CRM_URL}/widget/notes`)
   notesWidgetWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-
-  // Send config when loaded (no token needed - uses session cookies)
-  notesWidgetWindow.webContents.once('did-finish-load', () => {
-    if (notesWidgetWindow && !notesWidgetWindow.isDestroyed()) {
-      notesWidgetWindow.webContents.send('widget-config', {
-        crmUrl: CRM_URL,
-      })
-    }
-  })
 
   // Save position when moved
   notesWidgetWindow.on('move', () => {

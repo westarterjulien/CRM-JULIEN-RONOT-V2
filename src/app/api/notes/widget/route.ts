@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   try {
     const session = await auth()
 
-    if (!session?.user?.tenantId) {
+    if (!session?.user) {
       return NextResponse.json(
         { error: "Non authentifié" },
         { status: 401 }
@@ -17,10 +17,13 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const limit = Math.min(parseInt(searchParams.get("limit") || "15"), 50)
 
+    // Mono-tenant for now
+    const tenantId = BigInt(1)
+
     // Fetch notes for the widget
     const notes = await prisma.note.findMany({
       where: {
-        tenantId: session.user.tenantId,
+        tenant_id: tenantId,
         isArchived: false,
       },
       include: {
@@ -42,7 +45,7 @@ export async function GET(request: Request) {
     const stats = await prisma.note.groupBy({
       by: ["type"],
       where: {
-        tenantId: session.user.tenantId,
+        tenant_id: tenantId,
         isArchived: false,
       },
       _count: true,
