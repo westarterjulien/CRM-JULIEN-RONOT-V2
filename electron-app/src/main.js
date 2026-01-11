@@ -33,6 +33,13 @@ autoUpdater.autoDownload = true
 autoUpdater.autoInstallOnAppQuit = true
 autoUpdater.allowPrerelease = false
 
+// Force set the GitHub provider explicitly
+autoUpdater.setFeedURL({
+  provider: 'github',
+  owner: 'LUELIS',
+  repo: 'CRM-JULIEN-RONOT-V2',
+})
+
 // Enable more verbose logging for debugging
 autoUpdater.logger = {
   info: (msg) => console.log('[AutoUpdater INFO]', msg),
@@ -44,24 +51,17 @@ autoUpdater.logger = {
 function setupAutoUpdater() {
   console.log('[AutoUpdater] ========================================')
   console.log('[AutoUpdater] Current version:', app.getVersion())
-  console.log('[AutoUpdater] Feed URL:', autoUpdater.getFeedURL())
+  console.log('[AutoUpdater] Feed URL:', JSON.stringify(autoUpdater.getFeedURL()))
   console.log('[AutoUpdater] Auto download:', autoUpdater.autoDownload)
   console.log('[AutoUpdater] ========================================')
-  console.log('[AutoUpdater] Checking for updates...')
 
-  // Check for updates on startup
-  autoUpdater.checkForUpdates().then((result) => {
-    if (result) {
-      console.log('[AutoUpdater] Check result:', JSON.stringify({
-        version: result.updateInfo?.version,
-        releaseDate: result.updateInfo?.releaseDate,
-        stagingPercentage: result.updateInfo?.stagingPercentage,
-      }))
-    }
-  }).catch((err) => {
-    console.log('[AutoUpdater] Initial check failed:', err.message)
-    console.log('[AutoUpdater] Error details:', err.stack)
-  })
+  // Check for updates on startup (with small delay to ensure app is ready)
+  setTimeout(() => {
+    console.log('[AutoUpdater] Checking for updates...')
+    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+      console.log('[AutoUpdater] Check failed:', err.message)
+    })
+  }, 3000)
 
   // Update available - show prominent notification
   autoUpdater.on('update-available', (info) => {
