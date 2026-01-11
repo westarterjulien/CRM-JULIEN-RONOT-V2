@@ -65,7 +65,7 @@ export async function GET(request: Request) {
 
     // Format notes for the widget
     const formattedNotes = notes.map((note) => ({
-      id: note.id,
+      id: String(note.id),
       type: note.type,
       content: note.content,
       isTop: note.isTop,
