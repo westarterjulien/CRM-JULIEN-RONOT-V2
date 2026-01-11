@@ -463,36 +463,6 @@ export default function NotesWidgetPage() {
               >
                 {icons.pin}
               </button>
-              {/* Edit button for non-todo notes */}
-              {expandedNote.type !== "todo" && !isEditing && (
-                <button
-                  onClick={startEditing}
-                  className="w-7 h-7 bg-white/15 hover:bg-white/25 rounded-lg flex items-center justify-center transition-colors text-white"
-                  title="Modifier"
-                >
-                  {icons.edit}
-                </button>
-              )}
-              {/* Save/Cancel buttons when editing */}
-              {isEditing && (
-                <>
-                  <button
-                    onClick={saveContent}
-                    disabled={saving}
-                    className="w-7 h-7 bg-green-500 hover:bg-green-600 rounded-lg flex items-center justify-center transition-colors text-white"
-                    title="Enregistrer"
-                  >
-                    {icons.save}
-                  </button>
-                  <button
-                    onClick={cancelEditing}
-                    className="w-7 h-7 bg-red-500 hover:bg-red-600 rounded-lg flex items-center justify-center transition-colors text-white"
-                    title="Annuler"
-                  >
-                    {icons.cancel}
-                  </button>
-                </>
-              )}
               {!isEditing && (
                 <>
                   <button
@@ -590,25 +560,59 @@ export default function NotesWidgetPage() {
               <textarea
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
-                className="w-full h-full min-h-[150px] text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg p-3 outline-none focus:border-blue-400 focus:bg-white transition-colors resize-none"
-                placeholder="Contenu de la note..."
+                className="w-full h-full min-h-[200px] text-sm text-gray-700 bg-white border-2 border-blue-300 rounded-lg p-3 outline-none focus:border-blue-500 transition-colors resize-none"
+                placeholder="Écrivez votre note ici..."
                 autoFocus
               />
             ) : (
-              <div
-                onClick={startEditing}
-                className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed cursor-text hover:bg-gray-50 rounded-lg p-1 -m-1 transition-colors"
-                title="Cliquer pour modifier"
-              >
-                {expandedNote.content.replace(/^#+\s+/gm, "") || (
-                  <span className="text-gray-400 italic">Cliquer pour ajouter du contenu...</span>
-                )}
+              <div className="flex flex-col h-full">
+                <div
+                  onClick={startEditing}
+                  className="flex-1 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed cursor-text hover:bg-blue-50 rounded-lg p-2 border-2 border-dashed border-transparent hover:border-blue-200 transition-colors"
+                  title="Cliquer pour modifier"
+                >
+                  {expandedNote.content.replace(/^#+\s+/gm, "") || (
+                    <span className="text-gray-400 italic">Cliquer ici pour écrire...</span>
+                  )}
+                </div>
+                {/* Edit button at bottom */}
+                <button
+                  onClick={startEditing}
+                  className="mt-3 w-full py-2.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  {icons.edit}
+                  <span>Modifier la note</span>
+                </button>
               </div>
             )}
           </div>
 
+          {/* Save button when editing */}
+          {isEditing && (
+            <div className="px-3 py-2 border-t border-gray-200 flex gap-2">
+              <button
+                onClick={cancelEditing}
+                className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={saveContent}
+                disabled={saving}
+                className="flex-1 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                {saving ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  icons.save
+                )}
+                <span>Enregistrer</span>
+              </button>
+            </div>
+          )}
+
           {/* Tags */}
-          {expandedNote.tags.length > 0 && (
+          {expandedNote.tags.length > 0 && !isEditing && (
             <div className="px-3 py-2 border-t border-gray-100 flex flex-wrap gap-1.5">
               {expandedNote.tags.map((tag) => (
                 <span
