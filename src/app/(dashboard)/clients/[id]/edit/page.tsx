@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { ArrowLeft, Building2, User, Loader2, Landmark, Search, CheckCircle2, FileText } from "lucide-react"
+import { ArrowLeft, Building2, User, Loader2, Landmark, Search, CheckCircle2, FileText, X } from "lucide-react"
 
 interface CompanySearchResult {
   siren: string
@@ -138,10 +138,13 @@ export default function EditClientPage() {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
+  const [searchError, setSearchError] = useState<string | null>(null)
+
   const searchCompany = async () => {
     if (!searchQuery.trim()) return
     setSearching(true)
     setSearchResults([])
+    setSearchError(null)
 
     try {
       const isNumber = /^\d+$/.test(searchQuery.replace(/\s/g, ""))
@@ -150,10 +153,14 @@ export default function EditClientPage() {
         : `https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(searchQuery)}&page=1&per_page=10`
 
       const res = await fetch(endpoint)
+      if (!res.ok) {
+        throw new Error(`Erreur API: ${res.status}`)
+      }
       const data = await res.json()
       setSearchResults(data.results || [])
     } catch (error) {
       console.error("Search failed:", error)
+      setSearchError(error instanceof Error ? error.message : "Erreur de recherche")
     } finally {
       setSearching(false)
     }
@@ -729,8 +736,19 @@ export default function EditClientPage() {
               </div>
             )}
 
+            {/* Error */}
+            {!searching && searchError && (
+              <div className="text-center py-8">
+                <div className="w-12 h-12 mx-auto rounded-full bg-red-100 flex items-center justify-center mb-3">
+                  <X className="h-6 w-6 text-red-500" />
+                </div>
+                <p className="text-red-600 font-medium">Erreur de recherche</p>
+                <p className="text-sm text-muted-foreground mt-1">{searchError}</p>
+              </div>
+            )}
+
             {/* No Results */}
-            {!searching && searchResults.length === 0 && searchQuery && (
+            {!searching && !searchError && searchResults.length === 0 && searchQuery && (
               <div className="text-center py-8">
                 <FileText className="h-12 w-12 mx-auto text-muted-foreground/50" />
                 <p className="mt-2 text-muted-foreground">Aucune entreprise trouvée</p>

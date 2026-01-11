@@ -452,6 +452,15 @@ export async function DELETE(
       return notFound("Invoice not found")
     }
 
+    // Obligation légale : seuls les brouillons peuvent être supprimés
+    // Les factures émises doivent être annulées (avoir) pour la traçabilité comptable
+    if (existingInvoice.status !== "draft") {
+      return NextResponse.json(
+        { error: "Seuls les brouillons peuvent être supprimés. Les factures émises doivent être annulées pour respecter les obligations comptables." },
+        { status: 403 }
+      )
+    }
+
     await prisma.invoice.delete({
       where: { id: invoiceId },
     })

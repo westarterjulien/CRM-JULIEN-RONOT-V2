@@ -1177,18 +1177,23 @@ export default function InvoicesPage() {
                                 <LinkIcon className="h-4 w-4" />
                                 Copier le lien
                               </button>
-                              <div style={{ borderTop: "1px solid #EEEEEE", margin: "4px 0" }} />
-                              <button
-                                onClick={() => {
-                                  setInvoiceToDelete(invoice)
-                                  setDeleteDialogOpen(true)
-                                }}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors hover:bg-[#FEE2E8]"
-                                style={{ color: "#F04B69" }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                Supprimer
-                              </button>
+                              {/* Seuls les brouillons peuvent être supprimés (obligation légale) */}
+                              {invoice.status === "draft" && (
+                                <>
+                                  <div style={{ borderTop: "1px solid #EEEEEE", margin: "4px 0" }} />
+                                  <button
+                                    onClick={() => {
+                                      setInvoiceToDelete(invoice)
+                                      setDeleteDialogOpen(true)
+                                    }}
+                                    className="w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors hover:bg-[#FEE2E8]"
+                                    style={{ color: "#F04B69" }}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                    Supprimer
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
