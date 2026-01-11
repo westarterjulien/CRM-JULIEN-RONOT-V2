@@ -84,23 +84,27 @@ export default function NewClientPage() {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
+  const [searchError, setSearchError] = useState<string | null>(null)
+
   const searchCompany = async () => {
     if (!searchQuery.trim()) return
     setSearching(true)
     setSearchResults([])
+    setSearchError(null)
 
     try {
-      // Use French company search API
-      const isNumber = /^\d+$/.test(searchQuery.replace(/\s/g, ""))
-      const endpoint = isNumber
-        ? `https://recherche-entreprises.api.gouv.fr/search?q=${searchQuery}&page=1&per_page=10`
-        : `https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(searchQuery)}&page=1&per_page=10`
-
-      const res = await fetch(endpoint)
+      // Utilise notre API interne pour éviter les problèmes CORS
+      const res = await fetch(`/api/company-search?q=${encodeURIComponent(searchQuery)}`)
       const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || `Erreur API: ${res.status}`)
+      }
+
       setSearchResults(data.results || [])
     } catch (error) {
       console.error("Search failed:", error)
+      setSearchError(error instanceof Error ? error.message : "Erreur de recherche")
     } finally {
       setSearching(false)
     }

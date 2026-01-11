@@ -147,16 +147,14 @@ export default function EditClientPage() {
     setSearchError(null)
 
     try {
-      const isNumber = /^\d+$/.test(searchQuery.replace(/\s/g, ""))
-      const endpoint = isNumber
-        ? `https://recherche-entreprises.api.gouv.fr/search?q=${searchQuery}&page=1&per_page=10`
-        : `https://recherche-entreprises.api.gouv.fr/search?q=${encodeURIComponent(searchQuery)}&page=1&per_page=10`
-
-      const res = await fetch(endpoint)
-      if (!res.ok) {
-        throw new Error(`Erreur API: ${res.status}`)
-      }
+      // Utilise notre API interne pour éviter les problèmes CORS
+      const res = await fetch(`/api/company-search?q=${encodeURIComponent(searchQuery)}`)
       const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || `Erreur API: ${res.status}`)
+      }
+
       setSearchResults(data.results || [])
     } catch (error) {
       console.error("Search failed:", error)
