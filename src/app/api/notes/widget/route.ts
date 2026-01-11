@@ -20,11 +20,12 @@ export async function GET(request: Request) {
     // Mono-tenant for now
     const tenantId = BigInt(1)
 
-    // Fetch notes for the widget
+    // Fetch notes for the widget (exclude archived and recycled)
     const notes = await prisma.note.findMany({
       where: {
         tenant_id: tenantId,
         isArchived: false,
+        isRecycle: false,
       },
       include: {
         tags: {
@@ -41,12 +42,13 @@ export async function GET(request: Request) {
       take: limit,
     })
 
-    // Get stats
+    // Get stats (exclude archived and recycled)
     const stats = await prisma.note.groupBy({
       by: ["type"],
       where: {
         tenant_id: tenantId,
         isArchived: false,
+        isRecycle: false,
       },
       _count: true,
     })

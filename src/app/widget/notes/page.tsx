@@ -61,6 +61,21 @@ const icons = {
       <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
     </svg>
   ),
+  send: (
+    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
+      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+    </svg>
+  ),
+  checkbox: (
+    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-gray-400">
+      <path d="M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z" />
+    </svg>
+  ),
+  checkboxChecked: (
+    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-green-500">
+      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+    </svg>
+  ),
 }
 
 function formatDate(dateStr: string) {
@@ -87,10 +102,36 @@ function formatReminder(dateStr: string) {
   return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })
 }
 
-function truncate(text: string, max = 100) {
-  const cleaned = text.replace(/^#+\s+/gm, "").replace(/\n+/g, " ").trim()
-  if (cleaned.length <= max) return cleaned
-  return cleaned.substring(0, max).trim() + "..."
+// Format content: clean markdown and render task checkboxes
+function formatContent(text: string, type: string) {
+  // Clean markdown headers
+  let cleaned = text.replace(/^#+\s+/gm, "")
+
+  // For todo type, convert task syntax to readable text
+  if (type === "todo") {
+    // Extract tasks and show first unchecked one
+    const tasks = cleaned.match(/- \[[ xX]\] .+/g) || []
+    const uncheckedTasks = tasks.filter(t => t.startsWith("- [ ]"))
+    const checkedTasks = tasks.filter(t => t.match(/^- \[[xX]\]/))
+
+    if (tasks.length > 0) {
+      const firstTask = uncheckedTasks[0] || checkedTasks[0]
+      const taskText = firstTask?.replace(/^- \[[ xX]\] /, "") || ""
+      const remaining = uncheckedTasks.length > 1 ? ` (+${uncheckedTasks.length - 1})` : ""
+      return {
+        text: taskText + remaining,
+        checked: checkedTasks.length,
+        total: tasks.length,
+      }
+    }
+  }
+
+  // Regular truncation for other types
+  cleaned = cleaned.replace(/\n+/g, " ").trim()
+  if (cleaned.length > 80) {
+    cleaned = cleaned.substring(0, 80).trim() + "..."
+  }
+  return { text: cleaned, checked: 0, total: 0 }
 }
 
 export default function NotesWidgetPage() {
@@ -98,6 +139,8 @@ export default function NotesWidgetPage() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [quickNote, setQuickNote] = useState("")
+  const [submitting, setSubmitting] = useState(false)
 
   const fetchNotes = async () => {
     setLoading(true)
@@ -119,6 +162,35 @@ export default function NotesWidgetPage() {
       setError(err instanceof Error ? err.message : "Erreur")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const submitQuickNote = async () => {
+    if (!quickNote.trim() || submitting) return
+
+    setSubmitting(true)
+    try {
+      const res = await fetch("/api/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          content: quickNote.trim(),
+          type: "quick",
+          tagIds: [],
+          entityLinks: [],
+          reminderAt: null,
+        }),
+      })
+
+      if (res.ok) {
+        setQuickNote("")
+        fetchNotes()
+      }
+    } catch (err) {
+      console.error("Error creating note:", err)
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -189,26 +261,53 @@ export default function NotesWidgetPage() {
           </div>
         </div>
 
+        {/* Quick note input */}
+        <div className="px-3 py-2 border-b border-gray-100" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={quickNote}
+              onChange={(e) => setQuickNote(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault()
+                  submitQuickNote()
+                }
+              }}
+              placeholder="Note rapide..."
+              className="flex-1 px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-blue-400 focus:bg-white transition-colors"
+            />
+            <button
+              onClick={submitQuickNote}
+              disabled={!quickNote.trim() || submitting}
+              className="px-3 py-2 bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-300 text-white rounded-lg transition-colors"
+              title="Ajouter"
+            >
+              {icons.send}
+            </button>
+          </div>
+        </div>
+
         {/* Stats bar */}
         {stats && stats.total > 0 && (
-          <div className="flex gap-4 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs text-gray-600">
+          <div className="flex gap-4 px-4 py-2 bg-gray-50 border-b border-gray-200 text-xs text-gray-600">
             <div className="flex items-center gap-1.5">
               <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-yellow-500">
                 <path d="M7 2v11h3v9l7-12h-4l4-8z" />
               </svg>
-              <span>{stats.quick} Flash</span>
+              <span>{stats.quick}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-blue-500">
                 <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2z" />
               </svg>
-              <span>{stats.note} Notes</span>
+              <span>{stats.note}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-purple-500">
                 <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
               </svg>
-              <span>{stats.todo} Tâches</span>
+              <span>{stats.todo}</span>
             </div>
           </div>
         )}
@@ -243,55 +342,71 @@ export default function NotesWidgetPage() {
                 </svg>
               </div>
               <div className="text-sm font-medium text-gray-600 mb-1">Aucune note</div>
-              <div className="text-xs text-gray-400">Vos notes apparaîtront ici</div>
+              <div className="text-xs text-gray-400">Utilisez le champ ci-dessus</div>
             </div>
           ) : (
             <div className="space-y-1">
-              {notes.map((note) => (
-                <div
-                  key={note.id}
-                  onClick={() => openNote(note.id)}
-                  className="flex gap-2.5 p-2.5 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors"
-                >
+              {notes.map((note) => {
+                const formatted = formatContent(note.content, note.type)
+                return (
                   <div
-                    className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      note.type === "quick"
-                        ? "bg-yellow-500/10"
-                        : note.type === "todo"
-                        ? "bg-purple-500/10"
-                        : "bg-blue-500/10"
-                    }`}
+                    key={note.id}
+                    onClick={() => openNote(note.id)}
+                    className="flex gap-2.5 p-2.5 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors"
                   >
-                    {icons[note.type]}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs text-gray-700 leading-relaxed line-clamp-2">
-                      {truncate(note.content)}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      {note.isTop && <span className="text-yellow-500">{icons.pin}</span>}
-                      {note.tags.slice(0, 2).map((t) => (
-                        <span
-                          key={t.name}
-                          className="text-[10px] font-medium"
-                          style={{ color: t.color || "#0064FA" }}
-                        >
-                          #{t.name}
-                        </span>
-                      ))}
-                      {note.reminderAt && (
-                        <span className="flex items-center gap-1 text-[10px] text-red-500 bg-red-50 px-1.5 py-0.5 rounded">
-                          {icons.bell}
-                          {formatReminder(note.reminderAt)}
-                        </span>
+                    <div
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        note.type === "quick"
+                          ? "bg-yellow-500/10"
+                          : note.type === "todo"
+                          ? "bg-purple-500/10"
+                          : "bg-blue-500/10"
+                      }`}
+                    >
+                      {note.type === "todo" && formatted.total > 0 ? (
+                        formatted.checked === formatted.total ? icons.checkboxChecked : icons.checkbox
+                      ) : (
+                        icons[note.type]
                       )}
-                      <span className="text-[10px] text-gray-400">
-                        {formatDate(note.createdAt)}
-                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-xs leading-relaxed line-clamp-2 ${
+                        note.type === "todo" && formatted.checked === formatted.total
+                          ? "text-gray-400 line-through"
+                          : "text-gray-700"
+                      }`}>
+                        {formatted.text}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        {note.isTop && <span className="text-yellow-500">{icons.pin}</span>}
+                        {note.type === "todo" && formatted.total > 0 && (
+                          <span className="text-[10px] text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">
+                            {formatted.checked}/{formatted.total}
+                          </span>
+                        )}
+                        {note.tags.slice(0, 2).map((t) => (
+                          <span
+                            key={t.name}
+                            className="text-[10px] font-medium"
+                            style={{ color: t.color || "#0064FA" }}
+                          >
+                            #{t.name}
+                          </span>
+                        ))}
+                        {note.reminderAt && (
+                          <span className="flex items-center gap-1 text-[10px] text-red-500 bg-red-50 px-1.5 py-0.5 rounded">
+                            {icons.bell}
+                            {formatReminder(note.reminderAt)}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-gray-400">
+                          {formatDate(note.createdAt)}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
