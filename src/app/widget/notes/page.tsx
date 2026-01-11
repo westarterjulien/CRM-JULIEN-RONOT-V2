@@ -103,7 +103,9 @@ export default function NotesWidgetPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch("/api/notes/widget?limit=15")
+      const res = await fetch("/api/notes/widget?limit=15", {
+        credentials: "include",
+      })
       if (!res.ok) {
         if (res.status === 401) {
           throw new Error("Session expirée")
