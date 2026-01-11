@@ -399,7 +399,7 @@ function injectDeploymentPolling() {
 
       // Poll every 3 seconds for faster detection
       pollDeployments();
-      setInterval(pollDeployments, 3000);
+      setInterval(pollDeployments, 1000);
       console.log('[Electron] Deployment polling started (3s interval)');
     })();
   `;

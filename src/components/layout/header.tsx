@@ -170,11 +170,11 @@ export function Header({ onMenuClick }: HeaderProps) {
     return () => clearInterval(interval)
   }, [fetchNextEvent])
 
-  // Refresh deployments every 5s if active, 15s otherwise for real-time monitoring
+  // Refresh deployments every 1s for real-time monitoring
   useEffect(() => {
-    const interval = setInterval(fetchDeployments, activeDeployments.length > 0 ? 5000 : 15000)
+    const interval = setInterval(fetchDeployments, 1000)
     return () => clearInterval(interval)
-  }, [fetchDeployments, activeDeployments.length])
+  }, [fetchDeployments])
 
   useEffect(() => {
     if (isOpen) fetchNotifications()

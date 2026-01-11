@@ -229,13 +229,13 @@ export default function DeploymentsPage() {
     fetchDeployments()
   }, [fetchDeployments])
 
-  // Auto-refresh every 10 seconds
+  // Auto-refresh every 1 second
   useEffect(() => {
     if (!autoRefresh) return
 
     const interval = setInterval(() => {
       fetchDeployments(true)
-    }, 10000)
+    }, 1000)
 
     return () => clearInterval(interval)
   }, [autoRefresh, fetchDeployments])
