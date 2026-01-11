@@ -14,7 +14,6 @@ const store = new Store({
     overlayPosition: { x: 20, y: 80 }, // Default position
     notesWidget: false, // Notes widget enabled
     notesWidgetPosition: { x: 20, y: 200 }, // Notes widget position
-    notesApiToken: '', // API token for notes widget
   }
 })
 
@@ -269,6 +268,9 @@ function createNotesWidget() {
 
   const savedPosition = store.get('notesWidgetPosition')
 
+  // Get session from main window to share cookies
+  const mainSession = mainWindow ? mainWindow.webContents.session : null
+
   notesWidgetWindow = new BrowserWindow({
     width: 320,
     height: 450,
@@ -285,18 +287,19 @@ function createNotesWidget() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
+      // Share session with main window to use the same cookies
+      session: mainSession,
     },
   })
 
   notesWidgetWindow.loadFile(path.join(__dirname, 'notes-widget.html'))
   notesWidgetWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
 
-  // Send config when loaded
+  // Send config when loaded (no token needed - uses session cookies)
   notesWidgetWindow.webContents.once('did-finish-load', () => {
     if (notesWidgetWindow && !notesWidgetWindow.isDestroyed()) {
       notesWidgetWindow.webContents.send('widget-config', {
         crmUrl: CRM_URL,
-        apiToken: store.get('notesApiToken'),
       })
     }
   })
@@ -493,41 +496,6 @@ function createTray() {
     },
     { type: 'separator' },
     {
-      label: 'Configurer Token Notes...',
-      click: () => {
-        // Show input dialog for API token
-        const currentToken = store.get('notesApiToken')
-        const tokenPrefix = currentToken ? currentToken.substring(0, 12) + '...' : 'Non configuré'
-
-        dialog.showMessageBox(mainWindow, {
-          type: 'question',
-          title: 'Token API Notes',
-          message: 'Configurer le token API pour le widget Notes',
-          detail: `Token actuel: ${tokenPrefix}\n\nPour obtenir un token:\n1. CRM > Paramètres > Clés API\n2. Créez une clé avec permission "notes"\n3. Copiez le token ici`,
-          buttons: ['Coller le token', 'Supprimer le token', 'Annuler'],
-          defaultId: 0,
-          cancelId: 2,
-        }).then(async (result) => {
-          if (result.response === 0) {
-            // Read from clipboard
-            const { clipboard } = require('electron')
-            const token = clipboard.readText().trim()
-            if (token && token.startsWith('crm_')) {
-              store.set('notesApiToken', token)
-              sendNotification('Token configuré', 'Le widget Notes va se rafraîchir.', 'success')
-              refreshNotesWidget()
-            } else {
-              sendNotification('Token invalide', 'Le token doit commencer par "crm_"', 'error')
-            }
-          } else if (result.response === 1) {
-            store.set('notesApiToken', '')
-            sendNotification('Token supprimé', 'Le widget Notes est désactivé.', 'info')
-            refreshNotesWidget()
-          }
-        })
-      }
-    },
-    {
       label: 'Vérifier les mises à jour',
       click: () => {
         autoUpdater.checkForUpdates().then((result) => {
@@ -627,7 +595,7 @@ app.whenReady().then(() => {
   setupAutoUpdater()
 
   // Auto-start notes widget if enabled
-  if (store.get('notesWidget') && store.get('notesApiToken')) {
+  if (store.get('notesWidget')) {
     setTimeout(() => {
       createNotesWidget()
     }, 2000) // Delay to let main window load first

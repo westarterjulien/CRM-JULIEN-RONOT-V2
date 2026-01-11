@@ -361,75 +361,6 @@
     .error-btn:hover {
       background: #0050CC;
     }
-
-    /* Setup state */
-    .setup-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 24px 16px;
-      text-align: center;
-    }
-
-    .setup-icon {
-      width: 48px;
-      height: 48px;
-      background: #FFF3E0;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 12px;
-    }
-
-    .setup-icon svg {
-      width: 24px;
-      height: 24px;
-      fill: #F0783C;
-    }
-
-    .setup-title {
-      font-size: 13px;
-      font-weight: 500;
-      color: #333333;
-      margin-bottom: 8px;
-    }
-
-    .setup-text {
-      font-size: 11px;
-      color: #666666;
-      line-height: 1.5;
-      margin-bottom: 16px;
-    }
-
-    .setup-steps {
-      text-align: left;
-      font-size: 11px;
-      color: #666666;
-      margin-bottom: 16px;
-      line-height: 1.6;
-    }
-
-    .setup-steps ol {
-      margin-left: 16px;
-    }
-
-    .setup-btn {
-      padding: 8px 16px;
-      background: #0064FA;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .setup-btn:hover {
-      background: #0050CC;
-    }
   </style>
 </head>
 <body>
@@ -491,10 +422,9 @@
       pin: '<svg viewBox="0 0 24 24"><path d="M16 9V4l1 0c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1l1 0v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z"/></svg>',
       bell: '<svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>',
       error: '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>',
-      key: '<svg viewBox="0 0 24 24"><path d="M12.65 10A5.99 5.99 0 0 0 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6a5.99 5.99 0 0 0 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>',
     };
 
-    let apiToken = null;
+    let crmUrl = '';
     let notes = [];
     let stats = null;
 
@@ -534,29 +464,6 @@
     // Render notes
     function renderNotes() {
       const container = document.getElementById('notes-list');
-
-      if (!apiToken) {
-        container.innerHTML = `
-          <div class="setup-state">
-            <div class="setup-icon">${icons.key}</div>
-            <div class="setup-title">Configuration requise</div>
-            <div class="setup-text">Pour afficher vos notes, créez une clé API dans le CRM.</div>
-            <div class="setup-steps">
-              <ol>
-                <li>Ouvrez le CRM > Paramètres</li>
-                <li>Onglet "Clés API"</li>
-                <li>Créez une clé avec permission "notes"</li>
-                <li>Copiez le token dans les paramètres de l'app</li>
-              </ol>
-            </div>
-            <button class="setup-btn" id="open-settings-btn">Ouvrir les paramètres</button>
-          </div>
-        `;
-        document.getElementById('open-settings-btn')?.addEventListener('click', () => {
-          window.electronAPI?.openSettings?.();
-        });
-        return;
-      }
 
       if (notes.length === 0) {
         container.innerHTML = `
@@ -626,31 +533,32 @@
       `;
     }
 
-    // Fetch notes from API
+    // Fetch notes from API (using session cookies - no token needed)
     async function fetchNotes() {
-      if (!apiToken) {
-        renderNotes();
-        return;
-      }
+      if (!crmUrl) return;
 
       showLoading();
 
       try {
-        const response = await fetch(`${window.crmUrl}/api/external/notes?limit=15`, {
+        // Use the internal notes API with session cookies
+        const response = await fetch(`${crmUrl}/api/notes/widget?limit=15`, {
+          credentials: 'include', // Include session cookies
           headers: {
-            'Authorization': `Bearer ${apiToken}`,
             'Content-Type': 'application/json',
           },
         });
 
         if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error?.message || 'Erreur API');
+          if (response.status === 401) {
+            throw new Error('Session expirée. Ouvrez le CRM pour vous reconnecter.');
+          }
+          const error = await response.json().catch(() => ({}));
+          throw new Error(error.error || 'Erreur de chargement');
         }
 
         const data = await response.json();
-        notes = data.data?.notes || [];
-        stats = data.data?.stats || null;
+        notes = data.notes || [];
+        stats = data.stats || null;
 
         renderNotes();
         renderStats();
@@ -674,8 +582,7 @@
 
     // Receive config from main process
     window.electronAPI?.onConfig?.((config) => {
-      window.crmUrl = config.crmUrl;
-      apiToken = config.apiToken;
+      crmUrl = config.crmUrl;
       fetchNotes();
     });
 
@@ -686,7 +593,7 @@
 
     // Auto-refresh every 2 minutes
     setInterval(() => {
-      if (apiToken) fetchNotes();
+      if (crmUrl) fetchNotes();
     }, 2 * 60 * 1000);
   </script>
 </body>
